@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+env/
+.env
+.idea/
+.vscode/
+build/
+dist/
+data/
+jinx_ai/mixamo_animations/.cache/
+.jinx/
+.jinx-ai/

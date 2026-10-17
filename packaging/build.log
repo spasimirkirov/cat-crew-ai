@@ -1,0 +1,415 @@
+[packager] ============================================================
+[packager] Jinx AI Packager
+[packager] Project:  C:\Development\jinx-ai
+[packager] Python:   C:\Development\jinx-ai\.venv\Scripts\python.exe
+[packager] Output:   C:\Development\jinx-ai\dist
+[packager] ============================================================
+[packager] Cleaning C:\Development\jinx-ai\dist
+[packager] Cleaning C:\Development\jinx-ai\build
+[packager] Installing requirements: C:\Development\jinx-ai\requirements.txt
+[packager] Running: 'C:\Development\jinx-ai\.venv\Scripts\pip' install -r 'C:\Development\jinx-ai\requirements.txt'
+Requirement already satisfied: numpy>=1.26.0 in .\.venv\Lib\site-packages (from -r C:\Development\jinx-ai\requirements.txt (line 1)) (2.5.3)
+Requirement already satisfied: PyQt6>=6.6.0 in .\.venv\Lib\site-packages (from -r C:\Development\jinx-ai\requirements.txt (line 2)) (6.11.0)
+Requirement already satisfied: requests>=2.31.0 in .\.venv\Lib\site-packages (from -r C:\Development\jinx-ai\requirements.txt (line 3)) (2.34.2)
+Requirement already satisfied: python-dotenv>=1.0.0 in .\.venv\Lib\site-packages (from -r C:\Development\jinx-ai\requirements.txt (line 4)) (1.2.3)
+Requirement already satisfied: pytest>=8.0.0 in .\.venv\Lib\site-packages (from -r C:\Development\jinx-ai\requirements.txt (line 5)) (9.1.1)
+Requirement already satisfied: mem0ai>=2.0.0 in .\.venv\Lib\site-packages (from -r C:\Development\jinx-ai\requirements.txt (line 6)) (2.0.20)
+Requirement already satisfied: sentence-transformers>=3.0.0 in .\.venv\Lib\site-packages (from -r C:\Development\jinx-ai\requirements.txt (line 7)) (6.0.1)
+Requirement already satisfied: huggingface_hub>=0.26.0 in .\.venv\Lib\site-packages (from -r C:\Development\jinx-ai\requirements.txt (line 8)) (1.30.0)
+Requirement already satisfied: edge-tts>=7.0.0 in .\.venv\Lib\site-packages (from -r C:\Development\jinx-ai\requirements.txt (line 9)) (7.2.8)
+Requirement already satisfied: faster-whisper>=1.1.0 in .\.venv\Lib\site-packages (from -r C:\Development\jinx-ai\requirements.txt (line 10)) (1.2.1)
+Requirement already satisfied: pyodbc>=5.1.0 in .\.venv\Lib\site-packages (from -r C:\Development\jinx-ai\requirements.txt (line 11)) (5.3.0)
+Requirement already satisfied: qtawesome>=1.3.0 in .\.venv\Lib\site-packages (from -r C:\Development\jinx-ai\requirements.txt (line 12)) (1.4.2)
+Requirement already satisfied: ddgs>=9.0.0 in .\.venv\Lib\site-packages (from -r C:\Development\jinx-ai\requirements.txt (line 13)) (9.16.0)
+Requirement already satisfied: PyQt6-sip<14,>=13.8 in .\.venv\Lib\site-packages (from PyQt6>=6.6.0->-r C:\Development\jinx-ai\requirements.txt (line 2)) (13.12.0)
+Requirement already satisfied: PyQt6-Qt6<6.12.0,>=6.11.0 in .\.venv\Lib\site-packages (from PyQt6>=6.6.0->-r C:\Development\jinx-ai\requirements.txt (line 2)) (6.11.2)
+Requirement already satisfied: charset_normalizer<4,>=2 in .\.venv\Lib\site-packages (from requests>=2.31.0->-r C:\Development\jinx-ai\requirements.txt (line 3)) (3.5.1)
+Requirement already satisfied: idna<4,>=2.5 in .\.venv\Lib\site-packages (from requests>=2.31.0->-r C:\Development\jinx-ai\requirements.txt (line 3)) (3.19)
+Requirement already satisfied: urllib3<3,>=1.26 in .\.venv\Lib\site-packages (from requests>=2.31.0->-r C:\Development\jinx-ai\requirements.txt (line 3)) (2.7.0)
+Requirement already satisfied: certifi>=2023.5.7 in .\.venv\Lib\site-packages (from requests>=2.31.0->-r C:\Development\jinx-ai\requirements.txt (line 3)) (2026.7.22)
+Requirement already satisfied: colorama>=0.4 in .\.venv\Lib\site-packages (from pytest>=8.0.0->-r C:\Development\jinx-ai\requirements.txt (line 5)) (0.4.6)
+Requirement already satisfied: iniconfig>=1.0.1 in .\.venv\Lib\site-packages (from pytest>=8.0.0->-r C:\Development\jinx-ai\requirements.txt (line 5)) (2.3.0)
+Requirement already satisfied: packaging>=22 in .\.venv\Lib\site-packages (from pytest>=8.0.0->-r C:\Development\jinx-ai\requirements.txt (line 5)) (26.3)
+Requirement already satisfied: pluggy<2,>=1.5 in .\.venv\Lib\site-packages (from pytest>=8.0.0->-r C:\Development\jinx-ai\requirements.txt (line 5)) (1.6.0)
+Requirement already satisfied: pygments>=2.7.2 in .\.venv\Lib\site-packages (from pytest>=8.0.0->-r C:\Development\jinx-ai\requirements.txt (line 5)) (2.21.0)
+Requirement already satisfied: httpx>=0.28.0 in .\.venv\Lib\site-packages (from mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (0.28.1)
+Requirement already satisfied: openai>=1.90.0 in .\.venv\Lib\site-packages (from mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (3.8.0)
+Requirement already satisfied: posthog>=7.14.0 in .\.venv\Lib\site-packages (from mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (7.47.0)
+Requirement already satisfied: protobuf<7.0.0,>=5.29.6 in .\.venv\Lib\site-packages (from mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (6.33.6)
+Requirement already satisfied: pydantic>=2.7.3 in .\.venv\Lib\site-packages (from mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (2.13.5)
+Requirement already satisfied: pytz>=2024.1 in .\.venv\Lib\site-packages (from mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (2026.3.post1)
+Requirement already satisfied: qdrant-client>=1.12.0 in .\.venv\Lib\site-packages (from mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (1.19.0)
+Requirement already satisfied: sqlalchemy>=2.0.31 in .\.venv\Lib\site-packages (from mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (2.0.52)
+Requirement already satisfied: transformers<6.0.0,>=5.0.0 in .\.venv\Lib\site-packages (from sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (5.16.1)
+Requirement already satisfied: tokenizers>=0.19 in .\.venv\Lib\site-packages (from sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (0.23.2)
+Requirement already satisfied: torch>=2.2 in .\.venv\Lib\site-packages (from sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (2.14.0)
+Requirement already satisfied: scikit-learn>=1.1.0 in .\.venv\Lib\site-packages (from sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (1.9.0)
+Requirement already satisfied: scipy>=1.0.0 in .\.venv\Lib\site-packages (from sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (1.18.1)
+Requirement already satisfied: typing_extensions>=4.10.0 in .\.venv\Lib\site-packages (from sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (4.16.0)
+Requirement already satisfied: tqdm>=4.0.0 in .\.venv\Lib\site-packages (from sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (4.70.0)
+Requirement already satisfied: click<9.0.0,>=8.4.2 in .\.venv\Lib\site-packages (from huggingface_hub>=0.26.0->-r C:\Development\jinx-ai\requirements.txt (line 8)) (8.5.0)
+Requirement already satisfied: filelock>=3.10.0 in .\.venv\Lib\site-packages (from huggingface_hub>=0.26.0->-r C:\Development\jinx-ai\requirements.txt (line 8)) (3.32.5)
+Requirement already satisfied: fsspec>=2023.5.0 in .\.venv\Lib\site-packages (from huggingface_hub>=0.26.0->-r C:\Development\jinx-ai\requirements.txt (line 8)) (2026.7.0)
+Requirement already satisfied: hf-xet<2.0.0,>=1.5.2 in .\.venv\Lib\site-packages (from huggingface_hub>=0.26.0->-r C:\Development\jinx-ai\requirements.txt (line 8)) (1.6.0)
+Requirement already satisfied: pyyaml>=5.1 in .\.venv\Lib\site-packages (from huggingface_hub>=0.26.0->-r C:\Development\jinx-ai\requirements.txt (line 8)) (6.0.3)
+Requirement already satisfied: anyio in .\.venv\Lib\site-packages (from httpx>=0.28.0->mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (4.15.1)
+Requirement already satisfied: httpcore==1.* in .\.venv\Lib\site-packages (from httpx>=0.28.0->mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (1.0.9)
+Requirement already satisfied: h11>=0.16 in .\.venv\Lib\site-packages (from httpcore==1.*->httpx>=0.28.0->mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (0.16.0)
+Requirement already satisfied: regex>=2025.10.22 in .\.venv\Lib\site-packages (from transformers<6.0.0,>=5.0.0->sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (2026.9.3)
+Requirement already satisfied: typer in .\.venv\Lib\site-packages (from transformers<6.0.0,>=5.0.0->sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (0.27.2)
+Requirement already satisfied: safetensors>=0.8.0 in .\.venv\Lib\site-packages (from transformers<6.0.0,>=5.0.0->sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (0.8.0)
+Requirement already satisfied: aiohttp<4.0.0,>=3.8.0 in .\.venv\Lib\site-packages (from edge-tts>=7.0.0->-r C:\Development\jinx-ai\requirements.txt (line 9)) (3.14.3)
+Requirement already satisfied: tabulate<1.0.0,>=0.4.4 in .\.venv\Lib\site-packages (from edge-tts>=7.0.0->-r C:\Development\jinx-ai\requirements.txt (line 9)) (0.10.0)
+Requirement already satisfied: aiohappyeyeballs>=2.5.0 in .\.venv\Lib\site-packages (from aiohttp<4.0.0,>=3.8.0->edge-tts>=7.0.0->-r C:\Development\jinx-ai\requirements.txt (line 9)) (2.7.1)
+Requirement already satisfied: aiosignal>=1.4.0 in .\.venv\Lib\site-packages (from aiohttp<4.0.0,>=3.8.0->edge-tts>=7.0.0->-r C:\Development\jinx-ai\requirements.txt (line 9)) (1.4.0)
+Requirement already satisfied: attrs>=17.3.0 in .\.venv\Lib\site-packages (from aiohttp<4.0.0,>=3.8.0->edge-tts>=7.0.0->-r C:\Development\jinx-ai\requirements.txt (line 9)) (26.1.0)
+Requirement already satisfied: frozenlist>=1.1.1 in .\.venv\Lib\site-packages (from aiohttp<4.0.0,>=3.8.0->edge-tts>=7.0.0->-r C:\Development\jinx-ai\requirements.txt (line 9)) (1.8.0)
+Requirement already satisfied: multidict<7.0,>=4.5 in .\.venv\Lib\site-packages (from aiohttp<4.0.0,>=3.8.0->edge-tts>=7.0.0->-r C:\Development\jinx-ai\requirements.txt (line 9)) (6.8.0)
+Requirement already satisfied: propcache>=0.2.0 in .\.venv\Lib\site-packages (from aiohttp<4.0.0,>=3.8.0->edge-tts>=7.0.0->-r C:\Development\jinx-ai\requirements.txt (line 9)) (0.5.2)
+Requirement already satisfied: yarl<2.0,>=1.17.0 in .\.venv\Lib\site-packages (from aiohttp<4.0.0,>=3.8.0->edge-tts>=7.0.0->-r C:\Development\jinx-ai\requirements.txt (line 9)) (1.24.5)
+Requirement already satisfied: ctranslate2<5,>=4.0 in .\.venv\Lib\site-packages (from faster-whisper>=1.1.0->-r C:\Development\jinx-ai\requirements.txt (line 10)) (4.8.2)
+Requirement already satisfied: onnxruntime<2,>=1.14 in .\.venv\Lib\site-packages (from faster-whisper>=1.1.0->-r C:\Development\jinx-ai\requirements.txt (line 10)) (1.29.0)
+Requirement already satisfied: av>=11 in .\.venv\Lib\site-packages (from faster-whisper>=1.1.0->-r C:\Development\jinx-ai\requirements.txt (line 10)) (18.1.0)
+Requirement already satisfied: flatbuffers in .\.venv\Lib\site-packages (from onnxruntime<2,>=1.14->faster-whisper>=1.1.0->-r C:\Development\jinx-ai\requirements.txt (line 10)) (25.12.19)
+Requirement already satisfied: qtpy in .\.venv\Lib\site-packages (from qtawesome>=1.3.0->-r C:\Development\jinx-ai\requirements.txt (line 12)) (2.4.3)
+Requirement already satisfied: primp>=1.3.1 in .\.venv\Lib\site-packages (from ddgs>=9.0.0->-r C:\Development\jinx-ai\requirements.txt (line 13)) (2.0.0)
+Requirement already satisfied: lxml>=4.9.4 in .\.venv\Lib\site-packages (from ddgs>=9.0.0->-r C:\Development\jinx-ai\requirements.txt (line 13)) (6.1.3)
+Requirement already satisfied: httpx2<3,>=2.7.0 in .\.venv\Lib\site-packages (from openai>=1.90.0->mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (2.12.0)
+Requirement already satisfied: jiter<1,>=0.16.0 in .\.venv\Lib\site-packages (from openai>=1.90.0->mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (0.16.0)
+Requirement already satisfied: sniffio in .\.venv\Lib\site-packages (from openai>=1.90.0->mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (1.3.1)
+Requirement already satisfied: httpcore2==2.12.0 in .\.venv\Lib\site-packages (from httpx2<3,>=2.7.0->openai>=1.90.0->mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (2.12.0)
+Requirement already satisfied: truststore>=0.10 in .\.venv\Lib\site-packages (from httpx2<3,>=2.7.0->openai>=1.90.0->mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (0.10.4)
+Requirement already satisfied: annotated-types>=0.6.0 in .\.venv\Lib\site-packages (from pydantic>=2.7.3->mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (0.8.0)
+Requirement already satisfied: pydantic-core==2.46.5 in .\.venv\Lib\site-packages (from pydantic>=2.7.3->mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (2.46.5)
+Requirement already satisfied: typing-inspection>=0.4.2 in .\.venv\Lib\site-packages (from pydantic>=2.7.3->mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (0.4.4)
+Requirement already satisfied: backoff>=1.10.0 in .\.venv\Lib\site-packages (from posthog>=7.14.0->mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (2.2.1)
+Requirement already satisfied: distro>=1.5.0 in .\.venv\Lib\site-packages (from posthog>=7.14.0->mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (1.9.0)
+Requirement already satisfied: grpcio>=1.41.0 in .\.venv\Lib\site-packages (from qdrant-client>=1.12.0->mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (1.83.1)
+Requirement already satisfied: portalocker<4.0,>=2.7.0 in .\.venv\Lib\site-packages (from qdrant-client>=1.12.0->mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (3.2.0)
+Requirement already satisfied: pywin32>=226 in .\.venv\Lib\site-packages (from portalocker<4.0,>=2.7.0->qdrant-client>=1.12.0->mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (312)
+Requirement already satisfied: h2<5,>=3 in .\.venv\Lib\site-packages (from httpx[http2]>=0.20.0->qdrant-client>=1.12.0->mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (4.4.1)
+Requirement already satisfied: hyperframe<7,>=6.1 in .\.venv\Lib\site-packages (from h2<5,>=3->httpx[http2]>=0.20.0->qdrant-client>=1.12.0->mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (6.1.0)
+Requirement already satisfied: hpack<5,>=4.2 in .\.venv\Lib\site-packages (from h2<5,>=3->httpx[http2]>=0.20.0->qdrant-client>=1.12.0->mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (4.2.0)
+Requirement already satisfied: joblib>=1.4.0 in .\.venv\Lib\site-packages (from scikit-learn>=1.1.0->sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (1.6.0)
+Requirement already satisfied: narwhals>=2.0.1 in .\.venv\Lib\site-packages (from scikit-learn>=1.1.0->sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (2.25.0)
+Requirement already satisfied: threadpoolctl>=3.5.0 in .\.venv\Lib\site-packages (from scikit-learn>=1.1.0->sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (3.6.0)
+Requirement already satisfied: cloudpickle>=3.0 in .\.venv\Lib\site-packages (from joblib>=1.4.0->scikit-learn>=1.1.0->sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (3.1.2)
+Requirement already satisfied: greenlet>=1 in .\.venv\Lib\site-packages (from sqlalchemy>=2.0.31->mem0ai>=2.0.0->-r C:\Development\jinx-ai\requirements.txt (line 6)) (3.5.5)
+Requirement already satisfied: setuptools>=77.0.3 in .\.venv\Lib\site-packages (from torch>=2.2->sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (84.0.0)
+Requirement already satisfied: sympy>=1.13.3 in .\.venv\Lib\site-packages (from torch>=2.2->sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (1.14.0)
+Requirement already satisfied: networkx>=2.5.1 in .\.venv\Lib\site-packages (from torch>=2.2->sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (3.6.1)
+Requirement already satisfied: jinja2 in .\.venv\Lib\site-packages (from torch>=2.2->sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (3.1.6)
+Requirement already satisfied: mpmath<1.4,>=1.1.0 in .\.venv\Lib\site-packages (from sympy>=1.13.3->torch>=2.2->sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (1.3.0)
+Requirement already satisfied: MarkupSafe>=2.0 in .\.venv\Lib\site-packages (from jinja2->torch>=2.2->sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (3.0.3)
+Requirement already satisfied: shellingham>=1.3.0 in .\.venv\Lib\site-packages (from typer->transformers<6.0.0,>=5.0.0->sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (1.5.4)
+Requirement already satisfied: rich>=13.8.0 in .\.venv\Lib\site-packages (from typer->transformers<6.0.0,>=5.0.0->sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (15.0.0)
+Requirement already satisfied: annotated-doc>=0.0.2 in .\.venv\Lib\site-packages (from typer->transformers<6.0.0,>=5.0.0->sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (0.0.5)
+Requirement already satisfied: markdown-it-py>=2.2.0 in .\.venv\Lib\site-packages (from rich>=13.8.0->typer->transformers<6.0.0,>=5.0.0->sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (4.2.0)
+Requirement already satisfied: mdurl~=0.1 in .\.venv\Lib\site-packages (from markdown-it-py>=2.2.0->rich>=13.8.0->typer->transformers<6.0.0,>=5.0.0->sentence-transformers>=3.0.0->-r C:\Development\jinx-ai\requirements.txt (line 7)) (0.1.2)
+[packager] PyInstaller already available
+[packager] Creating standalone jinx.cmd wrapper...
+[packager] Created CLI wrapper: C:\Development\jinx-ai\packaging\jinx.cmd
+[packager] ==================================================
+[packager] Building Jinx AI executable with PyInstaller
+[packager] ==================================================
+[packager] Running: 'C:\Development\jinx-ai\.venv\Scripts\python.exe' -m PyInstaller --name JinxAI --onedir --clean --noconfirm --distpath 'C:\Development\jinx-ai\dist' --workpath 'C:\Development\jinx-ai\build\pyinstaller_work' --specpath 'C:\Development\jinx-ai\build\pyinstaller_spec' --collect-submodules jinx_ai --collect-submodules jinx_ai.harness --collect-submodules jinx_ai.providers --collect-submodules jinx_ai.connectors --collect-submodules jinx_ai.connectors.drivers --collect-submodules jinx_ai.lm_runtime --hidden-import jinx_ai.config --hidden-import jinx_ai.settings_store --hidden-import jinx_ai.here --hidden-import jinx_ai.llama_server --hidden-import jinx_ai.memory --hidden-import jinx_ai.heartbeat --hidden-import jinx_ai.wake --hidden-import jinx_ai.stt --hidden-import jinx_ai.voice --hidden-import jinx_ai.body --hidden-import jinx_ai.orb_particles --hidden-import jinx_ai.avatar_window --hidden-import jinx_ai.comfyui --hidden-import jinx_ai.helpers --hidden-import jinx_ai.tools --hidden-import jinx_ai.todo --hidden-import jinx_ai.clarify --hidden-import jinx_ai.single_instance --hidden-import jinx_ai.pending_restart --hidden-import jinx_ai.self_modifier --hidden-import jinx_ai.providers.base --hidden-import jinx_ai.providers.openai_compat --hidden-import jinx_ai.providers.local_llama --hidden-import jinx_ai.providers.deepseek --hidden-import jinx_ai.providers.groq --hidden-import jinx_ai.providers.gemini --hidden-import jinx_ai.providers.ollama --hidden-import jinx_ai.lm_runtime --hidden-import jinx_ai.lm_panel --hidden-import jinx_ai.local_models --hidden-import jinx_ai.gguf_browser --hidden-import jinx_ai.downloads --hidden-import jinx_ai.download_flyout --hidden-import jinx_ai.hardware --hidden-import jinx_ai.model_recs --hidden-import jinx_ai.docker_runtime --hidden-import jinx_ai.api_access --hidden-import jinx_ai.api_access_page --hidden-import jinx_ai.connectors_page --hidden-import jinx_ai.skills_page --hidden-import jinx_ai.terminal --hidden-import jinx_ai.git_panel --hidden-import jinx_ai.git_ops --hidden-import jinx_ai.db_panel --hidden-import jinx_ai.db_backend --hidden-import jinx_ai.file_explorer --hidden-import jinx_ai.editor_pane --hidden-import jinx_ai.chat_window --hidden-import jinx_ai.chat_transcript --hidden-import jinx_ai.composer --hidden-import jinx_ai.activity --hidden-import jinx_ai.activity_timeline --hidden-import jinx_ai.approval_bar --hidden-import jinx_ai.ask_user_bar --hidden-import jinx_ai.trace --hidden-import jinx_ai.session_tree --hidden-import jinx_ai.session_fs --hidden-import jinx_ai.sessions --hidden-import jinx_ai.workspace --hidden-import jinx_ai.agent_context --hidden-import jinx_ai.searxng --hidden-import jinx_ai.ddgs_search --hidden-import jinx_ai.image_search --hidden-import jinx_ai.skill_loader --hidden-import jinx_ai.prompt_loader --hidden-import jinx_ai.export --hidden-import jinx_ai.icon_loader --hidden-import jinx_ai.overlay --hidden-import jinx_ai.theme --hidden-import jinx_ai.updates --hidden-import jinx_ai.auto_update --hidden-import jinx_ai.telemetry --hidden-import jinx_ai.performance --hidden-import jinx_ai.backup --hidden-import jinx_ai.migration --hidden-import jinx_ai.plugins --hidden-import jinx_ai.plugin_manager --hidden-import jinx_ai.extensions --hidden-import jinx_ai.extension_manager --hidden-import jinx_ai.integration --hidden-import jinx_ai.proxy --hidden-import jinx_ai.firewall --hidden-import jinx_ai.security --hidden-import jinx_ai.encryption --hidden-import jinx_ai.credentials --hidden-import jinx_ai.token_manager --hidden-import jinx_ai.authentication --hidden-import jinx_ai.oauth --add-data 'C:\Development\jinx-ai\requirements.txt;.' --add-data 'C:\Development\jinx-ai\.env.example;.' 'C:\Development\jinx-ai\main.py'
+98 INFO: PyInstaller: 6.22.2, contrib hooks: 2026.7
+98 INFO: Python: 3.12.13
+122 INFO: Platform: Windows-11-10.0.26200-SP0
+122 INFO: Python environment: C:\Development\jinx-ai\.venv
+123 INFO: wrote C:\Development\jinx-ai\build\pyinstaller_spec\JinxAI.spec
+125 INFO: Removing temporary files and cleaning cache in C:\Users\spasi\AppData\Local\pyinstaller
+1940 INFO: Module search paths (PYTHONPATH):
+['C:\\Development\\jinx-ai',
+ 'C:\\Users\\spasi\\AppData\\Roaming\\uv\\python\\cpython-3.12-windows-x86_64-none\\python312.zip',
+ 'C:\\Users\\spasi\\AppData\\Roaming\\uv\\python\\cpython-3.12-windows-x86_64-none\\DLLs',
+ 'C:\\Users\\spasi\\AppData\\Roaming\\uv\\python\\cpython-3.12-windows-x86_64-none\\Lib',
+ 'C:\\Users\\spasi\\AppData\\Roaming\\uv\\python\\cpython-3.12-windows-x86_64-none',
+ 'C:\\Development\\jinx-ai\\.venv',
+ 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages',
+ 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\win32',
+ 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\win32\\lib',
+ 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\pythonwin',
+ 'C:\\Development\\jinx-ai']
+2204 INFO: Appending 'datas' from .spec
+2205 INFO: checking Analysis
+2205 INFO: Building Analysis because Analysis-00.toc is non existent
+2205 INFO: Looking for Python shared library...
+2205 INFO: Using Python shared library: C:\Users\spasi\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\python312.dll
+2205 INFO: Running Analysis Analysis-00.toc
+2205 INFO: Target bytecode optimization level: 0
+2205 INFO: Initializing module dependency graph...
+2206 INFO: Initializing module graph hook caches...
+2215 INFO: Analyzing modules for base_library.zip ...
+3072 INFO: Processing standard module hook 'hook-encodings.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+3375 INFO: Processing standard module hook 'hook-math.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+3511 INFO: Processing standard module hook 'hook-heapq.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+4115 INFO: Processing standard module hook 'hook-pickle.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+5010 INFO: Caching module dependency graph...
+5036 INFO: Analyzing C:\Development\jinx-ai\main.py
+5050 INFO: Processing standard module hook 'hook-PyQt6.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+5426 INFO: Processing standard module hook 'hook-PyQt6.QtCore.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+6351 INFO: Processing standard module hook 'hook-PyQt6.QtWidgets.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+7369 INFO: Processing standard module hook 'hook-PyQt6.QtGui.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+14247 INFO: Processing standard module hook 'hook-urllib3.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+14392 INFO: Processing pre-safe-import-module hook 'hook-backports.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+14393 INFO: SetuptoolsInfo: initializing cached setuptools info...
+14755 INFO: Setuptools: 'backports' appears to be a full setuptools-vendored copy - creating alias to 'setuptools._vendor.backports'!
+14763 INFO: Processing standard module hook 'hook-setuptools.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+14789 INFO: Processing standard module hook 'hook-platform.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+14792 INFO: Processing pre-safe-import-module hook 'hook-distutils.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+14826 INFO: Processing standard module hook 'hook-sysconfig.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+14829 INFO: Processing pre-safe-import-module hook 'hook-jaraco.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+14830 INFO: Setuptools: 'jaraco' appears to be a full setuptools-vendored copy - creating alias to 'setuptools._vendor.jaraco'!
+14837 INFO: Processing pre-safe-import-module hook 'hook-more_itertools.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+14837 INFO: Setuptools: 'more_itertools' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.more_itertools'!
+14931 INFO: Processing standard module hook 'hook-_osx_support.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+14934 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+15097 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+15169 INFO: Processing standard module hook 'hook-xml.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+15330 INFO: Processing standard module hook 'hook-_ctypes.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+15577 INFO: Processing pre-safe-import-module hook 'hook-packaging.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+15822 INFO: Processing standard module hook 'hook-setuptools._vendor.jaraco.text.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+15824 INFO: Processing pre-safe-import-module hook 'hook-importlib_resources.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+16346 INFO: Processing pre-safe-import-module hook 'hook-tomli.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+16347 INFO: Setuptools: 'tomli' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.tomli'!
+16686 INFO: Processing pre-safe-import-module hook 'hook-wheel.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+16686 INFO: Setuptools: 'wheel' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.wheel'!
+17196 INFO: Processing standard module hook 'hook-certifi.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+17228 INFO: Processing standard module hook 'hook-charset_normalizer.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+17386 INFO: Processing standard module hook 'hook-PyQt6.QtMultimedia.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+18222 INFO: Processing standard module hook 'hook-PyQt6.QtNetwork.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+19674 INFO: Processing standard module hook 'hook-anyio.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+20482 INFO: Processing standard module hook 'hook-difflib.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+20560 INFO: Processing standard module hook 'hook-webbrowser.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+20578 INFO: Processing standard module hook 'hook-pygments.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+21671 INFO: Processing standard module hook 'hook-rich.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+23716 INFO: Processing standard module hook 'hook-sqlite3.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+24210 INFO: Processing standard module hook 'hook-pydantic.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+24921 INFO: Processing standard module hook 'hook-zoneinfo.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+26239 INFO: Processing standard module hook 'hook-numpy.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+28236 INFO: Processing standard module hook 'hook-jinja2.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+28624 INFO: Processing standard module hook 'hook-torch.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+1249 WARNING: Failed to collect submodules for 'torch.utils.tensorboard' because importing 'torch.utils.tensorboard' raised: ModuleNotFoundError: No module named 'tensorboard'
+C:\Development\jinx-ai\.venv\Lib\site-packages\PyInstaller\utils\hooks\__init__.py:665: DeprecationWarning: `torch.distributed._sharding_spec` will be deprecated, use `torch.distributed._shard.sharding_spec` instead
+  __import__(name)
+C:\Development\jinx-ai\.venv\Lib\site-packages\PyInstaller\utils\hooks\__init__.py:665: DeprecationWarning: `torch.distributed._sharded_tensor` will be deprecated, use `torch.distributed._shard.sharded_tensor` instead
+  __import__(name)
+C:\Development\jinx-ai\.venv\Lib\site-packages\PyInstaller\utils\hooks\__init__.py:665: DeprecationWarning: `torch.distributed._shard.checkpoint` will be deprecated, use `torch.distributed.checkpoint` instead
+  __import__(name)
+37398 INFO: hook-torch: this torch build does not depend on MKL...
+38607 INFO: Processing standard module hook 'hook-py.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+39240 INFO: Processing standard module hook 'hook-pytest.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+46131 INFO: Processing standard module hook 'hook-scipy.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+47375 INFO: Processing standard module hook 'hook-scipy.linalg.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+53437 INFO: Processing pre-safe-import-module hook 'hook-win32com.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\pre_safe_import_module'
+53988 INFO: Processing standard module hook 'hook-win32com.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+53990 INFO: Processing standard module hook 'hook-pythoncom.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+54645 INFO: Processing standard module hook 'hook-pywintypes.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+63822 INFO: Processing standard module hook 'hook-onnxruntime.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+63878 INFO: Processing pre-safe-import-module hook 'hook-tensorflow.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\pre_safe_import_module'
+64546 INFO: Processing standard module hook 'hook-xml.etree.cElementTree.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+65784 INFO: Processing standard module hook 'hook-scipy.special._ufuncs.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+67182 INFO: Processing standard module hook 'hook-scipy.special._ellip_harm_2.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+67928 INFO: Processing standard module hook 'hook-scipy.spatial._ckdtree.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+68368 INFO: Processing standard module hook 'hook-scipy.spatial.transform.rotation.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+69059 INFO: Processing standard module hook 'hook-scipy.stats._stats.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+69455 INFO: Processing standard module hook 'hook-scipy.sparse.csgraph.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+72108 INFO: Processing standard module hook 'hook-scipy.io.matlab.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+82074 INFO: Processing standard module hook 'hook-fsspec.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+83992 INFO: Processing standard module hook 'hook-lxml.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+84235 INFO: Processing standard module hook 'hook-lxml.etree.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+87966 INFO: Processing standard module hook 'hook-xml.dom.domreg.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+89754 INFO: Processing standard module hook 'hook-qtawesome.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+89769 INFO: Processing standard module hook 'hook-qtpy.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+89771 INFO: hook-qtpy: selected 'PyQt6' as Qt bindings because hook for 'PyQt6' has been run before.
+89926 INFO: Processing standard module hook 'hook-PyQt6.QtOpenGL.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+91157 INFO: Processing standard module hook 'hook-PyQt6.QtOpenGLWidgets.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+92437 INFO: Processing standard module hook 'hook-ddgs.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+92875 INFO: Processing standard module hook 'hook-pyodbc.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+93692 INFO: Processing standard module hook 'hook-av.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+94975 INFO: Processing standard module hook 'hook-PyQt6.QtTextToSpeech.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+97179 INFO: Analyzing hidden import 'jinx_ai.helpers'
+97179 ERROR: Hidden import 'jinx_ai.helpers' not found
+97179 INFO: Analyzing hidden import 'jinx_ai.providers.local_llama'
+97179 ERROR: Hidden import 'jinx_ai.providers.local_llama' not found
+97179 INFO: Analyzing hidden import 'jinx_ai.providers.groq'
+97179 ERROR: Hidden import 'jinx_ai.providers.groq' not found
+97179 INFO: Analyzing hidden import 'jinx_ai.providers.gemini'
+97179 ERROR: Hidden import 'jinx_ai.providers.gemini' not found
+97179 INFO: Analyzing hidden import 'jinx_ai.providers.ollama'
+97184 INFO: Analyzing hidden import 'jinx_ai.skill_loader'
+97184 ERROR: Hidden import 'jinx_ai.skill_loader' not found
+97184 INFO: Analyzing hidden import 'jinx_ai.prompt_loader'
+97184 ERROR: Hidden import 'jinx_ai.prompt_loader' not found
+97184 INFO: Analyzing hidden import 'jinx_ai.export'
+97184 ERROR: Hidden import 'jinx_ai.export' not found
+97184 INFO: Analyzing hidden import 'jinx_ai.icon_loader'
+97184 ERROR: Hidden import 'jinx_ai.icon_loader' not found
+97184 INFO: Analyzing hidden import 'jinx_ai.overlay'
+97185 ERROR: Hidden import 'jinx_ai.overlay' not found
+97185 INFO: Analyzing hidden import 'jinx_ai.theme'
+97185 ERROR: Hidden import 'jinx_ai.theme' not found
+97185 INFO: Analyzing hidden import 'jinx_ai.updates'
+97185 ERROR: Hidden import 'jinx_ai.updates' not found
+97185 INFO: Analyzing hidden import 'jinx_ai.auto_update'
+97185 ERROR: Hidden import 'jinx_ai.auto_update' not found
+97185 INFO: Analyzing hidden import 'jinx_ai.telemetry'
+97185 ERROR: Hidden import 'jinx_ai.telemetry' not found
+97185 INFO: Analyzing hidden import 'jinx_ai.performance'
+97185 ERROR: Hidden import 'jinx_ai.performance' not found
+97185 INFO: Analyzing hidden import 'jinx_ai.backup'
+97185 ERROR: Hidden import 'jinx_ai.backup' not found
+97185 INFO: Analyzing hidden import 'jinx_ai.migration'
+97185 ERROR: Hidden import 'jinx_ai.migration' not found
+97185 INFO: Analyzing hidden import 'jinx_ai.plugins'
+97185 ERROR: Hidden import 'jinx_ai.plugins' not found
+97185 INFO: Analyzing hidden import 'jinx_ai.plugin_manager'
+97185 ERROR: Hidden import 'jinx_ai.plugin_manager' not found
+97185 INFO: Analyzing hidden import 'jinx_ai.extensions'
+97185 ERROR: Hidden import 'jinx_ai.extensions' not found
+97185 INFO: Analyzing hidden import 'jinx_ai.extension_manager'
+97185 ERROR: Hidden import 'jinx_ai.extension_manager' not found
+97185 INFO: Analyzing hidden import 'jinx_ai.integration'
+97185 ERROR: Hidden import 'jinx_ai.integration' not found
+97185 INFO: Analyzing hidden import 'jinx_ai.proxy'
+97185 ERROR: Hidden import 'jinx_ai.proxy' not found
+97185 INFO: Analyzing hidden import 'jinx_ai.firewall'
+97185 ERROR: Hidden import 'jinx_ai.firewall' not found
+97185 INFO: Analyzing hidden import 'jinx_ai.security'
+97185 ERROR: Hidden import 'jinx_ai.security' not found
+97185 INFO: Analyzing hidden import 'jinx_ai.encryption'
+97185 ERROR: Hidden import 'jinx_ai.encryption' not found
+97185 INFO: Analyzing hidden import 'jinx_ai.credentials'
+97185 ERROR: Hidden import 'jinx_ai.credentials' not found
+97185 INFO: Analyzing hidden import 'jinx_ai.token_manager'
+97185 ERROR: Hidden import 'jinx_ai.token_manager' not found
+97185 INFO: Analyzing hidden import 'jinx_ai.authentication'
+97185 ERROR: Hidden import 'jinx_ai.authentication' not found
+97185 INFO: Analyzing hidden import 'jinx_ai.oauth'
+97186 ERROR: Hidden import 'jinx_ai.oauth' not found
+97186 INFO: Analyzing hidden import 'jinx_ai.cli'
+97192 INFO: Analyzing hidden import 'jinx_ai.providers.lmstudio'
+97193 INFO: Processing module hooks (post-graph stage)...
+97722 INFO: Processing standard module hook 'hook-lxml.isoschematron.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+100120 INFO: Processing standard module hook 'hook-transformers.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+101655 INFO: Processing standard module hook 'hook-regex.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+103415 INFO: Processing standard module hook 'hook-sklearn.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+103841 INFO: Processing standard module hook 'hook-sklearn.utils.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+103930 INFO: Processing standard module hook 'hook-cloudpickle.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+104171 INFO: Processing standard module hook 'hook-narwhals.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+105274 INFO: Processing standard module hook 'hook-sklearn.externals.array_api_compat.numpy.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+105298 INFO: Processing standard module hook 'hook-sklearn.externals.array_api_compat.cupy.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+105306 INFO: Processing standard module hook 'hook-sklearn.externals.array_api_compat.torch.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+105323 INFO: Processing standard module hook 'hook-sklearn.externals.array_api_compat.dask.array.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+105476 INFO: Processing standard module hook 'hook-sklearn.metrics.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+107346 INFO: Processing standard module hook 'hook-sklearn.metrics.cluster.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+107393 INFO: Processing standard module hook 'hook-sklearn.metrics.pairwise.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+107494 INFO: Processing standard module hook 'hook-sklearn.cluster.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+107606 INFO: Processing standard module hook 'hook-sklearn.neighbors.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+107670 INFO: Processing standard module hook 'hook-sklearn.linear_model.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+125516 WARNING: Hidden import "tzdata" not found!
+126805 WARNING: Hidden import "scipy.special._cdflib" not found!
+126829 INFO: Processing standard module hook 'hook-lxml.objectify.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+126847 INFO: Processing standard module hook 'hook-sklearn.tree.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+126937 INFO: Performing binary vs. data reclassification (831 entries)
+127008 INFO: Looking for ctypes DLLs
+127117 WARNING: Ignoring /usr/lib64/libgomp.so.1 imported from C:\Development\jinx-ai\.venv\Lib\site-packages\torch\_inductor\codecache.py - only basenames are supported with ctypes imports!
+127438 INFO: Analyzing run-time hooks ...
+127470 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+127473 INFO: Including run-time hook 'pyi_rth_pyqt6.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+127474 INFO: Processing pre-find-module-path hook 'hook-_pyi_rth_utils.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_find_module_path'
+127475 INFO: Processing standard module hook 'hook-_pyi_rth_utils.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+127477 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+127479 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+127480 INFO: Including run-time hook 'pyi_rth_setuptools.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+127482 INFO: Including run-time hook 'pyi_rth_pywintypes.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\rthooks'
+127483 INFO: Including run-time hook 'pyi_rth_pythoncom.py' from 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\rthooks'
+127591 INFO: Creating base_library.zip...
+127607 INFO: Looking for dynamic libraries
+C:\Development\jinx-ai\.venv\Lib\site-packages\PyInstaller\building\build_main.py:227: DeprecationWarning: `torch.distributed._sharding_spec` will be deprecated, use `torch.distributed._shard.sharding_spec` instead
+  __import__(package)
+C:\Development\jinx-ai\.venv\Lib\site-packages\PyInstaller\building\build_main.py:227: DeprecationWarning: `torch.distributed._sharded_tensor` will be deprecated, use `torch.distributed._shard.sharded_tensor` instead
+  __import__(package)
+C:\Development\jinx-ai\.venv\Lib\site-packages\PyInstaller\building\build_main.py:227: DeprecationWarning: `torch.distributed._shard.checkpoint` will be deprecated, use `torch.distributed.checkpoint` instead
+  __import__(package)
+137368 INFO: Extra DLL search directories (AddDllDirectory): ['C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyQt6\\Qt6\\bin', 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\numpy.libs', 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\torch\\lib', 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\scipy.libs', 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\av.libs', 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\ctranslate2', 'C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\ctranslate2/../_rocm_sdk_core/bin']
+137368 INFO: Extra DLL search directories (PATH): ['C:\\Development\\jinx-ai\\.venv\\Lib\\site-packages\\PyQt6\\Qt6\\bin']
+140157 INFO: Warnings written to C:\Development\jinx-ai\build\pyinstaller_work\JinxAI\warn-JinxAI.txt
+140738 INFO: Graph cross-reference written to C:\Development\jinx-ai\build\pyinstaller_work\JinxAI\xref-JinxAI.html
+140921 INFO: checking PYZ
+141042 INFO: checking PKG
+141042 INFO: Bootloader C:\Development\jinx-ai\.venv\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\run.exe
+141042 INFO: checking EXE
+141077 INFO: checking COLLECT
+141130 INFO: Removing dir C:\Development\jinx-ai\dist\JinxAI
+141960 INFO: Building COLLECT COLLECT-00.toc
+146402 INFO: Building COLLECT COLLECT-00.toc completed successfully.
+146505 INFO: Build complete! The results are available in: C:\Development\jinx-ai\dist
+[packager] Build complete: C:\Development\jinx-ai\dist\JinxAI\JinxAI.exe
+[packager] Creating Inno Setup script...
+[packager] Created Inno Setup script: C:\Development\jinx-ai\packaging\inno\JinxAI.iss
+[packager] Found Inno Setup compiler: C:\Program Files (x86)\Inno Setup 6\ISCC.exe
+[packager] Building installer with Inno Setup: C:\Program Files (x86)\Inno Setup 6\ISCC.exe
+[packager] Running: 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' 'C:\Development\jinx-ai\packaging\inno\JinxAI.iss'
+Inno Setup 6 Command-Line Compiler
+Copyright (C) 1997-2026 Jordan Russell. All rights reserved.
+Portions Copyright (C) 2000-2026 Martijn Laan. All rights reserved.
+Portions Copyright (C) 2001-2004 Alex Yackimoff. All rights reserved.
+https://www.innosetup.com
+
+Compiler engine version: Inno Setup 6.7.3
+Non-commercial use only
+
+Preprocessing
+   Reading file: C:\Program Files (x86)\Inno Setup 6\ISPPBuiltins.iss
+Parsing [Setup] section, line 12
+Parsing [Setup] section, line 13
+Parsing [Setup] section, line 14
+Parsing [Setup] section, line 15
+Parsing [Setup] section, line 16
+Parsing [Setup] section, line 17
+Parsing [Setup] section, line 18
+Parsing [Setup] section, line 19
+Parsing [Setup] section, line 22
+Parsing [Setup] section, line 23
+Parsing [Setup] section, line 24
+Parsing [Setup] section, line 27
+Parsing [Setup] section, line 28
+Parsing [Setup] section, line 31
+Parsing [Setup] section, line 32
+Parsing [Setup] section, line 35
+Parsing [Setup] section, line 36
+Parsing [Setup] section, line 39
+Reading file (WizardImageFile)
+Reading file (WizardSmallImageFile)
+Preparing Setup program executable
+   Verification successful
+   Updating icons (Setup.e32)
+   Updating version info (Setup.e32)
+Determining language code pages
+Parsing [Languages] section, line 42
+   Reading file: C:\Program Files (x86)\Inno Setup 6\Default.isl
+   Messages in script file
+Reading default messages from Default.isl
+Parsing [Languages] section, line 42
+   Reading file: C:\Program Files (x86)\Inno Setup 6\Default.isl
+Parsing [LangOptions], [Messages], and [CustomMessages] sections
+   Messages in script file
+Reading [Code] section
+Parsing [Tasks] section, line 45
+Parsing [Tasks] section, line 46
+Parsing [Icons] section, line 52
+Parsing [Icons] section, line 53
+Parsing [Icons] section, line 54
+Parsing [Registry] section, line 188
+Parsing [Registry] section, line 189
+Parsing [UninstallDelete] section, line 183
+Parsing [UninstallDelete] section, line 184
+Parsing [Run] section, line 57
+Parsing [Files] section, line 49
+Compiling [Code] section
+Error on line 66 in C:\Development\jinx-ai\packaging\inno\JinxAI.iss: Column 41:
+Unknown identifier 'InstallLocationPage'
+Compile aborted.
+[packager ERROR] Command failed (exit 2). Command: 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' 'C:\Development\jinx-ai\packaging\inno\JinxAI.iss'

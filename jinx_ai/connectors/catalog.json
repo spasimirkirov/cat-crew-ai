@@ -1,0 +1,67 @@
+[
+  {
+    "id": "github",
+    "name": "GitHub",
+    "description": "Issues, pull requests, search, and repository metadata.",
+    "kind": "python",
+    "auth": "bearer",
+    "icon": "code",
+    "driver": "github",
+    "docs_url": "https://docs.github.com/en/rest",
+    "header_name": "Authorization",
+    "preload_tools": false
+  },
+  {
+    "id": "linear",
+    "name": "Linear",
+    "description": "Issues, projects, and cycles via Linear GraphQL API.",
+    "kind": "python",
+    "auth": "oauth_token",
+    "icon": "bolt",
+    "driver": "linear",
+    "docs_url": "https://developers.linear.app/docs/graphql/working-with-the-graphql-api",
+    "preload_tools": false
+  },
+  {
+    "id": "notion",
+    "name": "Notion",
+    "description": "Search and read Notion pages shared with an integration.",
+    "kind": "python",
+    "auth": "bearer",
+    "icon": "file",
+    "driver": "notion",
+    "docs_url": "https://developers.notion.com",
+    "preload_tools": false
+  },
+  {
+    "id": "slack",
+    "name": "Slack",
+    "description": "Post messages and read channels (bot token).",
+    "kind": "python",
+    "auth": "bearer",
+    "icon": "comment",
+    "driver": "slack",
+    "docs_url": "https://api.slack.com",
+    "preload_tools": false
+  },
+  {
+    "id": "atlassian",
+    "name": "Atlassian",
+    "description": "Jira / Confluence via MCP or REST.",
+    "kind": "mcp_http",
+    "auth": "header",
+    "icon": "wrench",
+    "docs_url": "https://developer.atlassian.com",
+    "preload_tools": false
+  },
+  {
+    "id": "custom-mcp",
+    "name": "Custom MCP",
+    "description": "Any remote MCP HTTP server URL you provide.",
+    "kind": "mcp_http",
+    "auth": "header",
+    "icon": "plug",
+    "docs_url": "https://modelcontextprotocol.io",
+    "preload_tools": false
+  }
+]
