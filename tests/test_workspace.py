@@ -1,16 +1,8 @@
 from pathlib import Path
 
-from jinx_ai.config import BASE_DIR
-from jinx_ai.sessions import new_session, session_folders
-from jinx_ai.workspace import (
-    add_folder,
-    current_folders,
-    current_workspace,
-    folder_picker_start,
-    remove_folder,
-    set_folders,
-    terminal_folders,
-)
+from backend.config import BASE_DIR
+from backend.services.sessions import new_session, session_folders
+from backend.services.workspace import add_folder, current_folders, current_workspace, folder_picker_start, remove_folder, set_folders, terminal_folders
 
 
 def test_session_folders_empty_list_stays_empty() -> None:
@@ -63,22 +55,22 @@ def test_folder_picker_start_is_not_app_source() -> None:
 
 
 def test_new_session_starts_with_empty_explorer(tmp_path: Path, monkeypatch) -> None:
-    from jinx_ai import sessions
+    from backend.services import sessions
 
     monkeypatch.setattr(sessions, "SESSIONS_DIR", tmp_path / "sessions")
     monkeypatch.setattr(sessions, "INDEX_PATH", tmp_path / "sessions" / "index.json")
-    monkeypatch.setattr("jinx_ai.session_fs.SCRATCH_ROOT", tmp_path / "scratch")
+    monkeypatch.setattr("backend.services.session_fs.SCRATCH_ROOT", tmp_path / "scratch")
     set_folders([tmp_path])
     session = new_session(mode="developer")
     assert session["folders"] == []
     assert session["workspace"] == ""
     assert current_folders() == []
-    assert not (tmp_path / ".jinx-ai").exists()
+    assert not (tmp_path / ".cat-crew-ai").exists()
     assert (tmp_path / "scratch" / session["id"]).is_dir()
 
 
 def test_prepare_computer_folder_creates_and_rejects_install(tmp_path: Path) -> None:
-    from jinx_ai.workspace import is_app_install, prepare_computer_folder
+    from backend.services.workspace import is_app_install, prepare_computer_folder
 
     missing = tmp_path / "site"
     created = prepare_computer_folder(missing)
@@ -93,19 +85,19 @@ def test_prepare_computer_folder_creates_and_rejects_install(tmp_path: Path) -> 
 
 
 def test_open_project_thread_binds_shared_computer(tmp_path: Path, monkeypatch) -> None:
-    from jinx_ai import sessions
-    from jinx_ai.platform.registry import PlatformBuilder, reset_registry_cache
-    from jinx_ai.sessions import open_project_thread, session_folders
+    from backend.services import sessions
+    from backend.platform.registry import PlatformBuilder, reset_registry_cache
+    from backend.services.sessions import open_project_thread, session_folders
 
     store = tmp_path / "registry.json"
-    monkeypatch.setattr("jinx_ai.platform.registry.STORE_PATH", store)
+    monkeypatch.setattr("backend.platform.registry.STORE_PATH", store)
     reset_registry_cache()
     computer = tmp_path / "shop"
     computer.mkdir()
     PlatformBuilder().project("p1", "Shop", folders=[str(computer)]).save()
     monkeypatch.setattr(sessions, "SESSIONS_DIR", tmp_path / "sessions")
     monkeypatch.setattr(sessions, "INDEX_PATH", tmp_path / "sessions" / "index.json")
-    monkeypatch.setattr("jinx_ai.session_fs.SCRATCH_ROOT", tmp_path / "scratch")
+    monkeypatch.setattr("backend.services.session_fs.SCRATCH_ROOT", tmp_path / "scratch")
     previous = current_folders()
     try:
         set_folders([])
@@ -117,7 +109,7 @@ def test_open_project_thread_binds_shared_computer(tmp_path: Path, monkeypatch) 
         again = open_project_thread("p1", "chief")
         assert again["id"] == first["id"]
         assert Path(session_folders(again)[0]).resolve() == computer.resolve()
-        one = open_project_thread("p1", "jinx")
+        one = open_project_thread("p1", "catcrew")
         assert one["id"] != first["id"]
         assert Path(session_folders(one)[0]).resolve() == computer.resolve()
         assert current_folders()[0] == computer.resolve()

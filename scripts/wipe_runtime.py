@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from jinx_ai.config import BASE_DIR
+from backend.config import BASE_DIR
 
 TARGETS = (
     BASE_DIR / "data" / "sessions",

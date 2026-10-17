@@ -1,4 +1,4 @@
-from jinx_ai.git_ops import split_status_files, status_letter
+from backend.services.git_ops import split_status_files, status_letter
 
 
 def test_untracked_is_changes_only() -> None:

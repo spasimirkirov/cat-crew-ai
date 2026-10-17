@@ -1,4 +1,4 @@
-from jinx_ai.agent_context import (
+from backend.agent_context import (
     expand_slash_command,
     list_templates,
     templates_prompt_index,

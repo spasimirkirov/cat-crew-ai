@@ -4,7 +4,7 @@ Run from the repo root:
 
     python scripts/init_marketplace_bots.py
 
-This is the same catalog shipped in ``jinx_ai/platform/defaults.json``.
+This is the same catalog shipped in ``backend/platform/defaults.json``.
 Re-run with ``--overwrite`` to replace ``data/platform/registry.json``.
 """
 
@@ -18,29 +18,24 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from jinx_ai.platform.chief import DEFAULT_CHIEF_PROMPT
-from jinx_ai.platform.presets import (
+from backend.platform.chief import DEFAULT_CHIEF_PROMPT
+from backend.platform.presets import (
     ACCOUNTANT_PROMPT,
     ARCHITECT_PROMPT,
     DESIGNER_PROMPT,
     DEVELOPER_PROMPT,
     QA_PROMPT,
 )
-from jinx_ai.platform.registry import PlatformBuilder, load_registry
+from backend.platform.registry import PlatformBuilder, load_registry
 
 
 def build_marketplace() -> PlatformBuilder:
-    """Software Engineering Team + Accountant Team + Simple Marketplace Website."""
+    """Software Engineering + Accountant roles + Simple Marketplace Website."""
     plat = PlatformBuilder()
     plat.global_tools("read_skill", "system_time")
     # Optional: plat.global_mcp("github")  — every bot inherits enabled connectors.
-    plat.chief(name="Chief", prompt=DEFAULT_CHIEF_PROMPT, max_rounds=12)
+    plat.chief(name="Cat Crew", prompt=DEFAULT_CHIEF_PROMPT, max_rounds=12)
 
-    plat.team(
-        "software-eng",
-        "Software Engineering Team",
-        "Architecture, UX, implementation, and QA for product work.",
-    )
     plat.bot(
         "architect",
         "Architect",
@@ -72,11 +67,6 @@ def build_marketplace() -> PlatformBuilder:
         description="Tests and regression notes.",
     )
 
-    plat.team(
-        "accountant",
-        "Accountant Team",
-        "Pricing, fees, invoices, and marketplace economics.",
-    )
     plat.bot(
         "accountant",
         "Accountant",
@@ -91,7 +81,7 @@ def build_marketplace() -> PlatformBuilder:
         "marketplace",
         "Simple Marketplace Website",
         "A small marketplace: listings, cart, checkout, and seller payouts.",
-        teams=["software-eng", "accountant"],
+        bots=["architect", "designer", "developer", "qa", "accountant"],
         state={"goal": "Ship a simple marketplace website."},
     )
     return plat
@@ -113,18 +103,13 @@ def main() -> int:
         )
         return 0
     registry = build_marketplace().save()
-    print(f"Chief: {registry.chief.name} (not on any team)")
-    for team in registry.teams.values():
-        members = ", ".join(
-            registry.bots[bid].name for bid in team.bot_ids if bid in registry.bots
-        )
-        print(f"Team {team.name}: {members}")
+    print(f"Chief: {registry.chief.name} (not staffed on any project)")
     for project in registry.projects.values():
-        print(
-            f"Project {project.name}: teams="
-            + ", ".join(project.team_ids)
+        members = ", ".join(
+            registry.bots[bid].name for bid in project.bot_ids if bid in registry.bots
         )
-    from jinx_ai.platform.registry import STORE_PATH
+        print(f"Project {project.name}: bots={members}")
+    from backend.platform.registry import STORE_PATH
 
     print("Wrote", STORE_PATH)
     return 0

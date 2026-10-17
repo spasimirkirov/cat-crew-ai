@@ -1,14 +1,7 @@
-from jinx_ai.api_access import (
-    brave_search_key,
-    cloud_host_ready,
-    compat_root,
-    huggingface_token,
-    ready_cloud_hosts,
-    resolved_key,
-)
-from jinx_ai.lm_runtime import parse_openai_models
-from jinx_ai.providers.openai_compat import _api_root
-from jinx_ai.settings_store import enabled_hosts, resolve_chat_brain
+from backend.services.api_access import brave_search_key, cloud_host_ready, compat_root, ready_cloud_hosts, resolved_key
+from backend.services.model_discovery import parse_openai_models
+from backend.providers.openai_compat import _api_root
+from backend.services.settings_store import enabled_hosts, resolve_chat_brain
 
 
 def test_brave_key_respects_toggle() -> None:
@@ -23,56 +16,33 @@ def test_brave_key_respects_toggle() -> None:
     assert brave_search_key(data) == ""
 
 
-def test_huggingface_token_respects_toggle(monkeypatch) -> None:
-    for name in ("HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "JINX_HF_TOKEN"):
-        monkeypatch.delenv(name, raising=False)
-    data = {
-        "api_access": {
-            "huggingface_key": "hf-test",
-            "huggingface_enabled": True,
-        }
-    }
-    assert huggingface_token(data) == "hf-test"
-    data["api_access"]["huggingface_enabled"] = False
-    assert huggingface_token(data) == ""
-
-
 def test_cloud_host_needs_key_and_toggle(monkeypatch) -> None:
-    for name in (
-        "DEEPSEEK_API_KEY",
-        "JINX_DEEPSEEK_KEY",
-        "GEMINI_API_KEY",
-        "GOOGLE_API_KEY",
-        "JINX_GEMINI_KEY",
-        "GROQ_API_KEY",
-        "JINX_GROQ_KEY",
-    ):
+    for name in ("OPENROUTER_API_KEY", "CATCREW_OPENROUTER_KEY"):
         monkeypatch.delenv(name, raising=False)
-    monkeypatch.setattr("jinx_ai.api_access.DEEPSEEK_API_KEY", "")
     data = {
         "brains": {
-            "local_enabled": True,
-            "chat_host": "local",
+            "chat_host": "openrouter",
         },
         "api_access": {
-            "deepseek_key": "sk-test",
-            "deepseek_enabled": True,
-            "gemini_key": "",
-            "gemini_enabled": True,
+            "openrouter_key": "sk-test",
+            "openrouter_enabled": True,
         },
     }
-    assert cloud_host_ready("deepseek", data)
-    assert not cloud_host_ready("gemini", data)
-    assert ready_cloud_hosts(data) == ["deepseek"]
-    assert enabled_hosts(data) == ["local", "deepseek"]
-    host, model = resolve_chat_brain({"provider": "deepseek", "model": ""}, data)
-    assert host == "deepseek"
+    assert cloud_host_ready("openrouter", data)
+    data["api_access"]["openrouter_enabled"] = False
+    assert not cloud_host_ready("openrouter", data)
+    data["api_access"]["openrouter_enabled"] = True
+    assert ready_cloud_hosts(data) == ["openrouter"]
+    assert enabled_hosts(data) == ["openrouter"]  # cloud hosts with a key; there is no local host
+    assert enabled_hosts({"api_access": {}}) == []
+    host, model = resolve_chat_brain({"provider": "openrouter", "model": ""}, data)
+    assert host == "openrouter"
     assert model
 
 
 def test_resolved_key_prefers_settings() -> None:
-    data = {"api_access": {"deepseek_key": "from-settings"}}
-    assert resolved_key("deepseek", data) == "from-settings"
+    data = {"api_access": {"openrouter_key": "from-settings"}}
+    assert resolved_key("openrouter", data) == "from-settings"
 
 
 def test_gemini_openai_root() -> None:
@@ -82,16 +52,39 @@ def test_gemini_openai_root() -> None:
     assert _api_root("https://api.deepseek.com") == "https://api.deepseek.com/v1"
 
 
-def test_parse_openai_models_skips_embeddings() -> None:
+def test_parse_openai_models_keeps_only_active_chat_models() -> None:
     models = parse_openai_models(
         {
             "data": [
                 {"id": "models/gemini-2.5-flash"},
                 {"id": "text-embedding-3-small"},
                 {"id": "whisper-large-v3"},
+                {"id": "retired-model", "active": False},
+                {"id": "llama-3.3-70b-versatile", "active": True, "context_window": 131072},
             ]
-        },
-        allow="gemini",
+        }
     )
-    assert [item.name for item in models] == ["gemini-2.5-flash"]
+    assert [item.name for item in models] == ["gemini-2.5-flash", "llama-3.3-70b-versatile"]
     assert "tools" in models[0].capabilities
+    assert models[1].context_length == 131072
+
+
+def test_parse_openai_models_reads_openrouter_pricing() -> None:
+    models = parse_openai_models(
+        {
+            "data": [
+                {
+                    "id": "deepseek/deepseek-v4-pro",
+                    "context_length": 128_000,
+                    "pricing": {"prompt": "0.0000009", "completion": "0.0000027", "input_cache_read": "0.00000009"},
+                },
+                {"id": "meta-llama/llama-3.3-70b-instruct:free", "context_length": 8_000, "pricing": {"prompt": "0", "completion": "0"}},
+                {"id": "llama-3.3-70b-versatile", "active": True, "context_window": 131072},  # no pricing (not OpenRouter)
+            ]
+        }
+    )
+    paid, free, unpriced = models
+    assert paid.price_prompt_per_1m == 0.9 and paid.price_completion_per_1m == 2.7
+    assert paid.is_free is False and paid.supports_prompt_cache is True
+    assert free.is_free is True and free.price_prompt_per_1m == 0.0
+    assert unpriced.price_prompt_per_1m is None and unpriced.is_free is False and unpriced.supports_prompt_cache is False

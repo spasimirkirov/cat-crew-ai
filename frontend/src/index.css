@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  background: #0b0d12;
+  color: #e6e8f0;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden; /* the app scrolls inside its panes, never the window */
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2b3042 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #2b3042;
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #3a405a;
+}
+
+::selection {
+  background: rgba(56, 189, 248, 0.35);
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-line bg-card shadow-card;
+  }
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-lg border border-line bg-card px-3 py-1.5 text-sm font-medium text-ink transition
+           hover:border-[#343a52] hover:bg-[#191d29] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan/60 disabled:pointer-events-none disabled:opacity-45;
+  }
+  .btn-primary {
+    @apply border-transparent bg-cyan text-[#06202e] hover:bg-[#5ccbfa] hover:border-transparent;
+  }
+  .btn-emerald {
+    @apply border-transparent bg-emerald text-[#04261a] hover:bg-[#52dfb0] hover:border-transparent;
+  }
+  .btn-danger {
+    @apply text-danger hover:border-danger/50 hover:bg-danger/10;
+  }
+  .btn-ghost {
+    @apply border-transparent bg-transparent text-muted hover:bg-white/5 hover:text-ink hover:border-transparent;
+  }
+  .btn-sm {
+    @apply px-2 py-1 text-xs;
+  }
+  .input {
+    @apply w-full rounded-lg border border-line bg-[#0f121a] px-3 py-2 text-sm text-ink placeholder:text-muted/70
+           focus:border-cyan/60 focus:outline-none focus:ring-1 focus:ring-cyan/40 disabled:opacity-50;
+  }
+  .label {
+    @apply mb-1 block text-xs font-medium uppercase tracking-wide text-muted;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-line bg-white/[0.03] px-2 py-0.5 text-[11px] font-medium text-muted;
+  }
+  .kbd {
+    @apply rounded border border-line bg-white/5 px-1 font-mono text-[10px] text-muted;
+  }
+}

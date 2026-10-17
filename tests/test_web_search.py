@@ -1,6 +1,6 @@
-from jinx_ai.ddgs_search import parse_ddgs_images, parse_ddgs_text
-from jinx_ai.here import locale_city, should_attach_forecast
-from jinx_ai.tools import _clean_hit, _search_ddg_instant, looks_like_weather, weather_place
+from backend.services.ddgs_search import parse_ddgs_images, parse_ddgs_text
+from backend.services.here import locale_city, should_attach_forecast
+from backend.tools import _clean_hit, _search_ddg_instant, looks_like_weather, weather_place
 
 
 def test_clean_hit_skips_search_engine_hosts() -> None:
@@ -24,7 +24,7 @@ def test_ddg_instant_parses_related_topics() -> None:
                 "Results": [],
             }
 
-    import jinx_ai.tools as tools
+    import backend.tools as tools
 
     original = tools._http_get
     tools._http_get = lambda *a, **k: _Fake()  # type: ignore[assignment]
@@ -61,27 +61,31 @@ def test_yes_after_search_offer_counts_as_weather() -> None:
 
 
 def test_assistant_prompt_answers_facts_not_site_lists() -> None:
-    from jinx_ai.tools import build_system_prompt
+    from backend.tools import build_system_prompt
+
+    from backend.platform.chief import turn_context
 
     text = build_system_prompt("assistant")
     assert "directory of websites" in text
-    assert "Now:" in text
-    assert "Tomorrow is" in text
-    assert "Never list weather websites" in text
+    # The clock lives in the turn note, not the (cached) system prompt.
+    assert "Now:" not in text
+    note = turn_context()
+    assert "Now:" in note and "Tomorrow is" in note
+    assert "Never list weather websites" in note
     assert "image_search" in text
-    assert "This is you (docs/JINX.md)" in text
+    assert "This is you (identity)" in text
     assert "source of truth" in text
     assert "read_skill" in text
     assert "comfy" in text
-    assert "jinx-self" in text
+    assert "catcrew-self" in text
 
 
 def test_developer_prompt_mentions_clarified_spec() -> None:
-    from jinx_ai.tools import build_system_prompt
+    from backend.tools import build_system_prompt
 
     text = build_system_prompt("developer")
     assert "clarified task spec" in text
-    assert "This is you (docs/JINX.md)" in text
+    assert "This is you (identity)" in text
     assert "source of truth" in text
 
 
@@ -109,11 +113,11 @@ def test_ddgs_parses_text_and_images() -> None:
 
 
 def test_searxng_is_optional_and_has_no_docker_launch(monkeypatch) -> None:
-    import jinx_ai.searxng as sx
+    import backend.services.searxng as sx
 
     monkeypatch.setattr(sx, "SEARXNG_URL", "")
-    monkeypatch.setattr("jinx_ai.settings_store.brains_settings", lambda: {"searxng_url": ""})
-    monkeypatch.delenv("JINX_SEARXNG_URLS", raising=False)
+    monkeypatch.setattr("backend.services.settings_store.brains_settings", lambda: {"searxng_url": ""})
+    monkeypatch.delenv("CATCREW_SEARXNG_URLS", raising=False)
     assert sx.searxng_urls() == []
     assert sx.search_searxng("python docs") == []
     assert not hasattr(sx, "launch_searxng")

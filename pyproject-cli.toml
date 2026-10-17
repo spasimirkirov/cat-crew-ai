@@ -1,11 +1,11 @@
 [project]
-name = "jinx-ai-cli"
+name = "cat-crew-ai-cli"
 version = "0.1.0"
-description = "Headless CLI for Jinx AI (one-shot + REPL), uses the same agent harness as the GUI."
+description = "Headless CLI for CatCrewAI (one-shot + REPL), uses the same agent harness as the API server."
 requires-python = ">=3.10"
 dependencies = [
   "filelock>=3.0.0",
 ]
 
 [project.scripts]
-jinx = "jinx_ai.cli:main"
+catcrew = "backend.cli:main"

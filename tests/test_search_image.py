@@ -1,11 +1,10 @@
 from pathlib import Path
 
-from jinx_ai.activity import next_reveal, phase_for
-from jinx_ai.searxng import parse_searxng, parse_searxng_images
-from jinx_ai.comfyui import sampler_for_checkpoint, txt2img_workflow
-from jinx_ai.chat_transcript import extract_images
-from jinx_ai.image_search import parse_brave_images, parse_wikimedia_images
-from jinx_ai.tools import ASSISTANT_TOOL_NAMES, tools_schema_for
+from backend.activity import next_reveal, phase_for
+from backend.services.searxng import parse_searxng, parse_searxng_images
+from backend.services.comfyui import sampler_for_checkpoint, txt2img_workflow
+from backend.services.image_search import parse_brave_images, parse_wikimedia_images
+from backend.tools import ASSISTANT_TOOL_NAMES, tools_schema_for
 
 
 def test_searxng_parses_results() -> None:
@@ -29,9 +28,9 @@ def test_searxng_parses_image_hits() -> None:
         {
             "results": [
                 {
-                    "title": "Arcane Jinx",
-                    "url": "https://example.com/jinx",
-                    "img_src": "https://cdn.example.com/jinx.jpg",
+                    "title": "Arcane CatCrewAI",
+                    "url": "https://example.com/catcrew",
+                    "img_src": "https://cdn.example.com/catcrew.jpg",
                 },
                 {
                     "title": "protocol-relative",
@@ -42,7 +41,7 @@ def test_searxng_parses_image_hits() -> None:
             ]
         }
     )
-    assert hits[0] == ("Arcane Jinx", "https://example.com/jinx", "https://cdn.example.com/jinx.jpg")
+    assert hits[0] == ("Arcane CatCrewAI", "https://example.com/catcrew", "https://cdn.example.com/catcrew.jpg")
     assert hits[1][2] == "https://cdn.example.com/thumb.png"
 
 
@@ -89,14 +88,14 @@ def test_phase_for_search_and_image() -> None:
     title, detail = phase_for("generate_image", {"prompt": "a neon fox"})
     assert title == "Generating image"
     assert "fox" in detail
-    title, detail = phase_for("image_search", {"query": "arcane jinx"})
+    title, detail = phase_for("image_search", {"query": "arcane catcrew"})
     assert title == "Searching images"
-    assert "jinx" in detail
+    assert "catcrew" in detail
 
 
 def test_next_reveal_types_smoothly() -> None:
     shown = ""
-    target = "Hello from Jinx, streaming a longer reply."
+    target = "Hello from CatCrewAI, streaming a longer reply."
     steps = 0
     while shown != target:
         nxt = next_reveal(shown, target)
@@ -122,17 +121,39 @@ def test_generate_image_is_an_assistant_tool() -> None:
     assert "web_search" in names
 
 
-def test_extract_images_strips_markdown() -> None:
-    text, paths = extract_images("Hi\n\n![cap](C:/nope/missing.png)\n")
-    assert "Hi" in text
-    assert paths == []
+def test_generate_image_routes_to_openrouter_or_comfyui_by_the_images_role(isolated, monkeypatch) -> None:
+    """The Images role decides the host, same as any other role -- ComfyUI stays the default, but an
+    OpenRouter pick is routed to the new module instead, never both."""
+    from backend.services import model_resolver
+    from backend import tools as tools_mod
 
+    calls: list[str] = []
 
-def test_extract_images_keeps_existing_files(tmp_path: Path) -> None:
-    one = tmp_path / "a.png"
-    two = tmp_path / "b.png"
-    one.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 16)
-    two.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 16)
-    text, paths = extract_images(f"Look\n\n![a]({one.as_posix()})\n![b]({two.as_posix()})\n")
-    assert text == "Look"
-    assert paths == [one, two]
+    def fake_or_generate(prompt, model, *, negative="", width=0, height=0, seed=-1):
+        calls.append("openrouter")
+        assert model == "google/gemini-2.5-flash-image"
+        return Path("/tmp/or.png")
+
+    def fake_comfy_generate(prompt, **kwargs):
+        calls.append("comfyui")
+        return Path("/tmp/comfy.png")
+
+    monkeypatch.setattr(
+        model_resolver,
+        "get_effective_model",
+        lambda project_id, role, data=None: model_resolver.EffectiveModel(host="openrouter", model="google/gemini-2.5-flash-image", source="global"),
+    )
+    monkeypatch.setattr("backend.services.openrouter_images.generate_image", fake_or_generate)
+    monkeypatch.setattr("backend.services.openrouter_images.format_saved", lambda paths, caption="": "openrouter-saved")
+    out = tools_mod.generate_image("a neon fox")
+    assert calls == ["openrouter"] and out == "openrouter-saved"
+
+    monkeypatch.setattr(
+        model_resolver,
+        "get_effective_model",
+        lambda project_id, role, data=None: model_resolver.EffectiveModel(host="comfyui", model="sd_xl_turbo.safetensors", source="global"),
+    )
+    monkeypatch.setattr("backend.services.comfyui.generate_image", fake_comfy_generate)
+    monkeypatch.setattr("backend.services.comfyui.format_saved", lambda paths, caption="": "comfy-saved")
+    out = tools_mod.generate_image("a neon fox")
+    assert calls == ["openrouter", "comfyui"] and out == "comfy-saved"

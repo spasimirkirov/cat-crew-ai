@@ -1,12 +1,4 @@
-from jinx_ai.session_tree import (
-    append_turn,
-    ensure_tree,
-    path_to_head,
-    provider_history,
-    set_head,
-    tree_outline,
-    visible_history,
-)
+from backend.services.session_tree import append_turn, ensure_tree, path_to_head, provider_history, set_head, tree_outline, visible_history
 
 
 def test_ensure_tree_migrates_linear_messages() -> None:
@@ -91,14 +83,14 @@ def test_visible_history_keeps_activity_metadata() -> None:
     }
     visible = visible_history(session)
     assert visible[-1]["activity"]["elapsed_s"] == 90
-    from jinx_ai.session_tree import provider_history
+    from backend.services.session_tree import provider_history
 
     provider = provider_history(session)
     assert "activity" not in provider[-1]
 
 
 def test_hidden_turns_skip_ui_but_reach_provider() -> None:
-    from jinx_ai.session_tree import provider_history, tree_outline
+    from backend.services.session_tree import provider_history, tree_outline
 
     session = {"messages": []}
     append_turn(session, "user", "hello")
@@ -113,10 +105,10 @@ def test_hidden_turns_skip_ui_but_reach_provider() -> None:
 
 
 def test_fork_copies_project_thread(monkeypatch) -> None:
-    from jinx_ai.sessions import fork_session
+    from backend.services.sessions import fork_session
 
-    monkeypatch.setattr("jinx_ai.sessions.save_session", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr("jinx_ai.sessions.apply_session_workspace", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr("backend.services.sessions.save_session", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr("backend.services.sessions.apply_session_workspace", lambda *_args, **_kwargs: None)
     forked = fork_session(
         {
             "id": "abc123",

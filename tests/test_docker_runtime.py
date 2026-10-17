@@ -1,4 +1,4 @@
-from jinx_ai.docker_runtime import DockerInfo, format_docker, probe_docker
+from backend.services.docker_runtime import DockerInfo, format_docker, probe_docker
 
 
 def test_prompt_line_when_available() -> None:
@@ -27,7 +27,7 @@ def test_format_docker_missing() -> None:
 
 
 def test_probe_caches(monkeypatch) -> None:
-    import jinx_ai.docker_runtime as dr
+    import backend.services.docker_runtime as dr
 
     calls = {"n": 0}
 
@@ -56,16 +56,16 @@ def test_probe_caches(monkeypatch) -> None:
 
 
 def test_system_prompt_mentions_docker(monkeypatch) -> None:
-    from jinx_ai.docker_runtime import DockerInfo
-    from jinx_ai.hardware import HardwareInfo
-    from jinx_ai.tools import build_system_prompt
+    from backend.services.docker_runtime import DockerInfo
+    from backend.services.hardware import HardwareInfo
+    from backend.tools import build_system_prompt
 
     monkeypatch.setattr(
-        "jinx_ai.hardware.probe_hardware",
+        "backend.services.hardware.probe_hardware",
         lambda ttl=120: HardwareInfo("CPU", 8, 16.0, "GPU", 8.0),
     )
     monkeypatch.setattr(
-        "jinx_ai.docker_runtime.probe_docker",
+        "backend.services.docker_runtime.probe_docker",
         lambda ttl=120: DockerInfo(True, "29.7.2", "5.5.0", os_name="Docker Desktop"),
     )
     text = build_system_prompt("developer")

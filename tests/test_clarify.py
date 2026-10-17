@@ -1,5 +1,5 @@
-from jinx_ai.clarify import parse_clarify, should_clarify
-from jinx_ai.providers.base import AssistantMessage, BaseProvider, Message, ToolCall
+from backend.services.clarify import parse_clarify, should_clarify
+from backend.providers.base import AssistantMessage, BaseProvider, Message, ToolCall
 
 
 def test_should_clarify_skips_assistant_and_short_steers() -> None:
@@ -30,7 +30,7 @@ def test_parse_clarify_strips_fences_and_labels() -> None:
 
 
 def test_clarify_task_uses_a_no_tools_chat() -> None:
-    from jinx_ai import clarify as clarify_mod
+    from backend.services import clarify as clarify_mod
 
     seen: list[list[Message]] = []
 

@@ -1,22 +1,7 @@
 from pathlib import Path
 
-from jinx_ai.comfyui import (
-    apply_overrides,
-    build_headless_command,
-    comfy_display_origin,
-    desktop_exe,
-    extra_paths_config,
-    hidden_creationflags,
-    img2img_workflow,
-    maybe_stop_comfy,
-    sampler_for_checkpoint,
-    stop_comfyui,
-    txt2img_workflow,
-    ui_to_api,
-    upscale_workflow,
-    _CREATE_NO_WINDOW,
-)
-from jinx_ai.tools import ASSISTANT_TOOL_NAMES, tools_schema_for
+from backend.services.comfyui import apply_overrides, build_headless_command, comfy_display_origin, desktop_exe, extra_paths_config, hidden_creationflags, img2img_workflow, maybe_stop_comfy, sampler_for_checkpoint, stop_comfyui, txt2img_workflow, ui_to_api, upscale_workflow, _CREATE_NO_WINDOW
+from backend.tools import ASSISTANT_TOOL_NAMES, tools_schema_for
 
 
 def test_txt2img_and_img2img_graphs() -> None:
@@ -113,11 +98,11 @@ def test_headless_command_uses_venv_not_desktop(tmp_path: Path, monkeypatch) -> 
     py.write_text("", encoding="utf-8")
     models = tmp_path / "models"
     (models / "checkpoints").mkdir(parents=True)
-    monkeypatch.setattr("jinx_ai.comfyui.install_root", lambda: root)
-    monkeypatch.setattr("jinx_ai.comfyui.shared_root", lambda: models)
-    monkeypatch.setattr("jinx_ai.comfyui.desktop_settings", lambda: {})
-    monkeypatch.setattr("jinx_ai.comfyui.brains_settings", lambda: {"comfyui_url": ""})
-    monkeypatch.setattr("jinx_ai.comfyui.BASE_DIR", tmp_path)
+    monkeypatch.setattr("backend.services.comfyui.install_root", lambda: root)
+    monkeypatch.setattr("backend.services.comfyui.shared_root", lambda: models)
+    monkeypatch.setattr("backend.services.comfyui.desktop_settings", lambda: {})
+    monkeypatch.setattr("backend.services.comfyui.brains_settings", lambda: {"comfyui_url": ""})
+    monkeypatch.setattr("backend.services.comfyui.BASE_DIR", tmp_path)
     cmd, cwd = build_headless_command()
     joined = " ".join(cmd).lower()
     assert "comfy desktop.exe" not in joined
@@ -134,11 +119,11 @@ def test_headless_command_uses_venv_not_desktop(tmp_path: Path, monkeypatch) -> 
 
 
 def test_stop_leaves_foreign_server_alone(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setattr("jinx_ai.comfyui._state_path", lambda: tmp_path / "comfy.pid")
-    monkeypatch.setattr("jinx_ai.comfyui.ping_comfyui", lambda: True)
-    monkeypatch.setattr("jinx_ai.comfyui.comfy_origin", lambda refresh=False: "http://127.0.0.1:8188")
+    monkeypatch.setattr("backend.services.comfyui._state_path", lambda: tmp_path / "comfy.pid")
+    monkeypatch.setattr("backend.services.comfyui.ping_comfyui", lambda: True)
+    monkeypatch.setattr("backend.services.comfyui.comfy_origin", lambda refresh=False: "http://127.0.0.1:8188")
     killed = []
-    monkeypatch.setattr("jinx_ai.comfyui._kill_pid", lambda pid: killed.append(pid))
+    monkeypatch.setattr("backend.services.comfyui._kill_pid", lambda pid: killed.append(pid))
     msg = stop_comfyui()
     assert not killed
     assert "no hidden" in msg.lower()
@@ -150,10 +135,10 @@ def test_maybe_stop_skips_sticky(tmp_path: Path, monkeypatch) -> None:
         '{"pid": 4242, "python": "C:\\\\py.exe", "sticky": true}',
         encoding="utf-8",
     )
-    monkeypatch.setattr("jinx_ai.comfyui._state_path", lambda: pid_file)
-    monkeypatch.setattr("jinx_ai.comfyui.owned_by_jinx", lambda: True)
-    monkeypatch.setattr("jinx_ai.comfyui.brains_settings", lambda: {"comfyui_autostop": True})
-    monkeypatch.setattr("jinx_ai.comfyui.stop_comfyui", lambda: "killed")
+    monkeypatch.setattr("backend.services.comfyui._state_path", lambda: pid_file)
+    monkeypatch.setattr("backend.services.comfyui.owned_by_catcrew", lambda: True)
+    monkeypatch.setattr("backend.services.comfyui.brains_settings", lambda: {"comfyui_autostop": True})
+    monkeypatch.setattr("backend.services.comfyui.stop_comfyui", lambda: "killed")
     assert maybe_stop_comfy() == ""
 
 
@@ -163,22 +148,22 @@ def test_maybe_stop_respects_autostop_off(tmp_path: Path, monkeypatch) -> None:
         '{"pid": 4242, "python": "C:\\\\py.exe", "sticky": false}',
         encoding="utf-8",
     )
-    monkeypatch.setattr("jinx_ai.comfyui._state_path", lambda: pid_file)
-    monkeypatch.setattr("jinx_ai.comfyui.owned_by_jinx", lambda: True)
-    monkeypatch.setattr("jinx_ai.comfyui.brains_settings", lambda: {"comfyui_autostop": False})
-    monkeypatch.setattr("jinx_ai.comfyui.stop_comfyui", lambda: "killed")
+    monkeypatch.setattr("backend.services.comfyui._state_path", lambda: pid_file)
+    monkeypatch.setattr("backend.services.comfyui.owned_by_catcrew", lambda: True)
+    monkeypatch.setattr("backend.services.comfyui.brains_settings", lambda: {"comfyui_autostop": False})
+    monkeypatch.setattr("backend.services.comfyui.stop_comfyui", lambda: "killed")
     assert maybe_stop_comfy() == ""
 
 
 def test_brains_autostop_defaults_on() -> None:
-    from jinx_ai.settings_store import brains_settings
+    from backend.services.settings_store import brains_settings
 
     cfg = brains_settings({"brains": {}})
     assert cfg["comfyui_autostop"] is True
 
 
 def test_launch_spawns_hidden_python(tmp_path: Path, monkeypatch) -> None:
-    import jinx_ai.comfyui as comfy
+    import backend.services.comfyui as comfy
 
     root = tmp_path / "ComfyUI"
     root.mkdir()
@@ -217,7 +202,7 @@ def test_launch_spawns_hidden_python(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_display_origin_does_not_hit_the_network(monkeypatch) -> None:
-    import jinx_ai.comfyui as comfy
+    import backend.services.comfyui as comfy
 
     monkeypatch.setattr(comfy, "_origin_cache", "")
     monkeypatch.setattr(comfy, "brains_settings", lambda: {"comfyui_url": "http://127.0.0.1:8188"})
@@ -231,7 +216,7 @@ def test_display_origin_does_not_hit_the_network(monkeypatch) -> None:
 
 
 def test_ping_bypasses_env_proxy(monkeypatch) -> None:
-    import jinx_ai.comfyui as comfy
+    import backend.services.comfyui as comfy
 
     assert comfy._http.trust_env is False
     seen: dict = {}

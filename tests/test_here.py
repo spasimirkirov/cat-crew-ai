@@ -1,11 +1,6 @@
 from datetime import datetime
 
-from jinx_ai.here import (
-    here_and_now,
-    looks_like_affirmation,
-    looks_like_weather,
-    should_attach_forecast,
-)
+from backend.services.here import here_and_now, looks_like_affirmation, looks_like_weather, should_attach_forecast
 
 
 def test_here_and_now_has_clock_and_tomorrow() -> None:

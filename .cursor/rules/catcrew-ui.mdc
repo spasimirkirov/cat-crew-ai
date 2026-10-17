@@ -1,0 +1,15 @@
+---
+description: CatCrewAI UI - React front end, live state, two-line cards
+alwaysApply: false
+globs: frontend/**
+---
+
+# CatCrewAI front end (`frontend/`)
+
+- Tauri + React + Tailwind + Font Awesome. The UI only talks to the backend API (`docs/API.md`); no business logic in components.
+- Home is a launcher with **no tasks**. Tasks live in the project workspace. Cat Crew (`crew`) is the orchestrator, not an agent: never give it a matrix column or look it up as an agent.
+- Live updates come from `/ws/events` through `state/reducer.ts`; add a reducer case and a test for any new event.
+- Activity, trace and diff callouts are clamped to two lines (`line-clamp-2`) with a **See more** toggle. Long message text uses `CollapsibleText` (5 lines for a work report, 12 for conversation).
+- Colours come from the Tailwind tokens (`bg`, `card`, `line`, `cyan`, `emerald`, `violet`, `muted`); icons are Font Awesome only.
+- Relative timestamps: "X mins ago" / "X hours ago" under 24 h, exact date after (`lib/time.ts`).
+- The native window is created hidden and shown after first paint (`lib/window.ts`); never show it from a constructor or before render.

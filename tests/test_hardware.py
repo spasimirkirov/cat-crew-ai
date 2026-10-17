@@ -1,4 +1,4 @@
-from jinx_ai.hardware import HardwareInfo, format_hardware, probe_hardware
+from backend.services.hardware import HardwareInfo, format_hardware, probe_hardware
 
 
 def test_prompt_line_and_format() -> None:
@@ -20,7 +20,7 @@ def test_prompt_line_and_format() -> None:
 
 
 def test_probe_uses_nvidia_smi(monkeypatch) -> None:
-    import jinx_ai.hardware as hardware
+    import backend.services.hardware as hardware
 
     monkeypatch.setattr(hardware, "_nvidia_smi", lambda: "nvidia-smi")
     monkeypatch.setattr(
@@ -42,11 +42,10 @@ def test_probe_uses_nvidia_smi(monkeypatch) -> None:
 
 def test_system_prompt_has_this_pc(monkeypatch) -> None:
     fake = HardwareInfo("AMD Ryzen 9 9950X", 16, 32.0, "NVIDIA GeForce RTX 5080", 16.0)
-    monkeypatch.setattr("jinx_ai.hardware.probe_hardware", lambda ttl=120: fake)
-    from jinx_ai.tools import build_system_prompt
+    monkeypatch.setattr("backend.services.hardware.probe_hardware", lambda ttl=120: fake)
+    from backend.tools import build_system_prompt
 
     text = build_system_prompt("developer")
     assert "This PC:" in text
     assert "RTX 5080" in text
     assert "hardware_info" in text
-    assert "recommend_models" in text

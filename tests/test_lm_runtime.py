@@ -1,16 +1,13 @@
-from jinx_ai.lm_runtime import (
-    format_capabilities,
-    infer_capabilities,
-    loaded_model_note,
-    normalize_capabilities,
-    normalize_host,
-    parse_pull_progress,
-)
-from jinx_ai.settings_store import (
+"""Host names, the model note, and how a role resolves to a host + model."""
+
+from __future__ import annotations
+
+import pytest
+
+from backend.services.lm_runtime import format_capabilities, host_label, loaded_model_note, model_names_match, normalize_host
+from backend.services.settings_store import (
     chat_pane_for,
-    enabled_hosts,
-    list_role_models,
-    resolve_chat_brain,
+    normalize_model_role,
     resolve_role_brain,
     save_role_brain,
     saved_role_brain,
@@ -18,50 +15,26 @@ from jinx_ai.settings_store import (
 
 
 def test_cloud_hosts_stay_named() -> None:
-    assert normalize_host("deepseek") == "deepseek"
-    assert normalize_host("gemini") == "gemini"
-    assert normalize_host("groq") == "groq"
-    assert normalize_host("openrouter") == "local"
-    assert normalize_host("openai") == "local"
-    assert normalize_host("lmstudio") == "local"
-    assert normalize_host("ollama") == "local"
+    for host in ("openrouter", "openai", "anthropic", "gemini", "deepseek", "groq", "mistral", "xai"):
+        assert normalize_host(host) == host
+    # There is no local model host: an old LM Studio / Ollama pick is no host at all.
+    for alias in ("ollama", "lmstudio", "lm studio", "local", ""):
+        assert normalize_host(alias) == ""
+    assert normalize_host("comfyui") == "comfyui" and normalize_host("off") == "off"
+    assert host_label("openrouter") == "OpenRouter" and host_label("gemini") == "Google Gemini"
 
 
 def test_format_and_note() -> None:
-    assert format_capabilities(["vision", "tools", "chat"]) == "tools · vision · chat"
-    note = loaded_model_note("local", "gemma-3-12b-it-Q4_K_M", ["tools"])
-    assert "gemma-3-12b-it-Q4_K_M" in note
+    assert format_capabilities(["chat", "vision", "reasoning", "tools"]) == "tools · vision · reasoning · chat"
+    note = loaded_model_note("groq", "gemma-3-12b-it-Q4_K_M", ["tools"])
+    assert "gemma-3-12b-it-Q4_K_M" in note and "via Groq" in note
     assert "function calling" in note
-    assert "Image generation" in note
 
 
-def test_enabled_hosts_and_resolve(monkeypatch) -> None:
-    monkeypatch.setattr("jinx_ai.api_access.DEEPSEEK_API_KEY", "")
-    monkeypatch.setattr("jinx_ai.api_access.BRAVE_SEARCH_API_KEY", "")
-    for name in (
-        "DEEPSEEK_API_KEY",
-        "JINX_DEEPSEEK_KEY",
-        "GEMINI_API_KEY",
-        "GOOGLE_API_KEY",
-        "JINX_GEMINI_KEY",
-        "GROQ_API_KEY",
-        "JINX_GROQ_KEY",
-    ):
-        monkeypatch.delenv(name, raising=False)
-    data = {
-        "brains": {
-            "local_enabled": True,
-            "chat_host": "ollama",
-            "chat_model": "ignored",
-        }
-    }
-    assert enabled_hosts(data) == ["local"]
-    host, model = resolve_chat_brain(
-        {"provider": "deepseek", "model": "gemma-3-12b-it-Q4_K_M"},
-        data,
-    )
-    assert host == "local"
-    assert model == "gemma-3-12b-it-Q4_K_M"
+def test_model_names_match_ignores_case_only() -> None:
+    assert model_names_match("gemma-3-12b-it-Q4_K_M", "Gemma-3-12b-it-Q4_K_M")
+    assert not model_names_match("gemma-3-12b-it-Q4_K_M", "qwen2.5-coder-14b")
+    assert not model_names_match("", "")
 
 
 def test_models_tab_has_no_chat() -> None:
@@ -72,162 +45,49 @@ def test_models_tab_has_no_chat() -> None:
         assert not show_chat
 
 
-def test_download_queue_and_model_name_match() -> None:
-    from jinx_ai.lm_runtime import (
-        HostSnapshot,
-        dequeue_download,
-        enqueue_download,
-        inject_pulled_model,
-        model_names_match,
-        snapshot_has_model,
-    )
-
-    assert model_names_match("gemma-3-12b-it-Q4_K_M", "Gemma-3-12b-it-Q4_K_M")
-    assert model_names_match(
-        "bartowski/gemma#gemma-3-12b-it-Q4_K_M.gguf",
-        "gemma-3-12b-it-Q4_K_M",
-    )
-    assert model_names_match(
-        "bartowski/gemma#gemma-3-12b-it-Q4_K_M.gguf",
-        "gemma-3-12b-it-Q4_K_M.gguf.part",
-    )
-    assert not model_names_match("gemma-3-12b-it-Q4_K_M", "qwen2.5-coder-14b")
-
-    status, queued = enqueue_download("", [], "repo#a.gguf")
-    assert status == "start"
-    status, queued = enqueue_download("repo#a.gguf", [], "repo#b.gguf")
-    assert status == "queued"
-    assert queued == ["repo#b.gguf"]
-    status, queued = enqueue_download("repo#a.gguf", ["repo#b.gguf"], "repo#b.gguf")
-    assert status == "duplicate"
-    assert dequeue_download(["repo#b.gguf", "repo#c.gguf"], "repo#b.gguf") == ["repo#c.gguf"]
-
-    snap = HostSnapshot(kind="local")
-    assert inject_pulled_model(snap, "repo#ministral-Q4_K_M.gguf")
-    assert snapshot_has_model(snap, "ministral-Q4_K_M")
-    assert not inject_pulled_model(snap, "ministral-Q4_K_M")
-    assert snap.models[0].name == "ministral-Q4_K_M"
+def _brains(**over) -> dict:
+    base = {"chat_host": "groq", "chat_model": "gemma-3-12b"}
+    base.update(over)
+    return {"brains": base, "api_access": {"groq_key": "k", "deepseek_key": "k"}}
 
 
-def test_pull_progress_has_percent_and_indeterminate() -> None:
-    busy = parse_pull_progress({"status": "pulling manifest"})
-    assert busy["indeterminate"] is True
-    assert busy["percent"] == 0
-    chunk = parse_pull_progress(
-        {"status": "downloading", "completed": 50, "total": 200}
-    )
-    assert chunk["percent"] == 25
-    assert chunk["indeterminate"] is False
-    done = parse_pull_progress({"status": "success", "percent": 100})
-    assert done["percent"] == 100
+@pytest.mark.parametrize("role", ["coding", "memory", "vision", "planning"])
+def test_optional_roles_inherit_chat_then_override(role: str) -> None:
+    data = _brains()
+    assert resolve_role_brain(role, data=data) == ("groq", "gemma-3-12b")
+    data["brains"][f"{role}_host"] = "deepseek"
+    data["brains"][f"{role}_model"] = "special-model"
+    assert resolve_role_brain(role, data=data) == ("deepseek", "special-model")
+    assert resolve_role_brain("companion", data=data) == ("groq", "gemma-3-12b")
 
 
-def test_delete_model_needs_a_name() -> None:
-    from jinx_ai.lm_runtime import delete_model
-
-    try:
-        delete_model("local", "  ")
-    except ValueError as exc:
-        assert "name" in str(exc).lower()
-    else:
-        raise AssertionError("expected ValueError")
-
-
-def test_normalize_capabilities_dict() -> None:
-    assert normalize_capabilities({"trained_for_tool_use": True, "vision": True}) == [
-        "tools",
-        "vision",
-    ]
-    assert infer_capabilities("flux-schnell") == ["image"]
-
-
-def _clear_cloud_env(monkeypatch) -> None:
-    monkeypatch.setattr("jinx_ai.api_access.DEEPSEEK_API_KEY", "")
-    monkeypatch.setattr("jinx_ai.api_access.BRAVE_SEARCH_API_KEY", "")
-    for name in (
-        "DEEPSEEK_API_KEY",
-        "JINX_DEEPSEEK_KEY",
-        "GEMINI_API_KEY",
-        "GOOGLE_API_KEY",
-        "JINX_GEMINI_KEY",
-        "GROQ_API_KEY",
-        "JINX_GROQ_KEY",
-    ):
-        monkeypatch.delenv(name, raising=False)
-
-
-def test_coding_role_inherits_then_overrides() -> None:
-    data = {
-        "brains": {
-            "local_enabled": True,
-            "chat_host": "ollama",
-            "chat_model": "gemma-3-12b-it-Q4_K_M",
-            "coding_host": "",
-            "coding_model": "",
-        }
-    }
-    assert resolve_role_brain("coding", data=data) == ("local", "gemma-3-12b-it-Q4_K_M")
-    data["brains"]["coding_host"] = "local"
-    data["brains"]["coding_model"] = "qwen2.5-coder-14b-Q4_K_M"
-    assert resolve_role_brain("coding", data=data) == ("local", "qwen2.5-coder-14b-Q4_K_M")
-    assert resolve_role_brain("companion", data=data) == ("local", "gemma-3-12b-it-Q4_K_M")
-    assert resolve_role_brain("memory", data=data) == ("local", "gemma-3-12b-it-Q4_K_M")
+def test_role_aliases() -> None:
+    assert normalize_model_role("chat") == "companion"
+    assert normalize_model_role("planner") == "planning"
+    assert normalize_model_role("vlm") == "vision"
+    assert normalize_model_role("summarizer") == "memory"
+    assert normalize_model_role("nonsense") == "companion"
 
 
 def test_explicit_coding_ignores_session_host() -> None:
-    data = {
-        "brains": {
-            "local_enabled": True,
-            "chat_host": "local",
-            "chat_model": "gemma-3-12b-it-Q4_K_M",
-            "coding_host": "local",
-            "coding_model": "qwen2.5-coder-14b-Q4_K_M",
-        }
-    }
-    host, model = resolve_role_brain(
-        "coding",
-        {"provider": "ollama", "model": "gemma-3-12b-it-Q4_K_M"},
-        data,
-    )
-    assert host == "local"
-    assert model == "qwen2.5-coder-14b-Q4_K_M"
+    data = _brains(coding_host="groq", coding_model="qwen2.5-coder-14b")
+    host, model = resolve_role_brain("coding", {"provider": "deepseek", "model": "x"}, data)
+    assert (host, model) == ("groq", "qwen2.5-coder-14b")
 
 
-def test_save_role_brain_inherit(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr("jinx_ai.settings_store.SETTINGS_PATH", tmp_path / "settings.json")
-    save_role_brain("coding", "ollama", "qwen2.5-coder-14b-Q4_K_M")
-    assert saved_role_brain("coding") == ("local", "qwen2.5-coder-14b-Q4_K_M")
-    save_role_brain("coding", "", "")
-    assert saved_role_brain("coding") == ("", "")
+def test_an_old_lm_studio_pick_reads_as_unset() -> None:
+    data = {"brains": {"chat_host": "lmstudio", "chat_model": "qwen", "coding_host": "lmstudio", "coding_model": "q"}}
+    assert saved_role_brain("companion", data) == ("", "qwen")
+    assert saved_role_brain("coding", data) == ("", "")
+    assert resolve_role_brain("coding", data=data) == ("", "qwen")  # no host is set up: nothing to run on
 
 
-def test_list_role_models_local_and_cloud_fallback(monkeypatch) -> None:
-    _clear_cloud_env(monkeypatch)
-    data = {
-        "brains": {
-            "local_enabled": True,
-            "chat_host": "local",
-            "chat_model": "gemma-3-12b-it-Q4_K_M",
-        },
-        "api_access": {
-            "deepseek_key": "sk-test",
-            "deepseek_enabled": True,
-            "gemini_key": "",
-            "gemini_enabled": False,
-            "groq_key": "",
-            "groq_enabled": False,
-        },
-    }
-    rows = list_role_models(
-        {"local": ["gemma-3-12b-it-Q4_K_M", "qwen2.5-coder-14b-Q4_K_M"], "deepseek": []},
-        "companion",
-        data,
-    )
-    assert ("local", "gemma-3-12b-it-Q4_K_M") in rows
-    assert ("local", "qwen2.5-coder-14b-Q4_K_M") in rows
-    assert any(host == "deepseek" for host, _name in rows)
-    assert list_role_models({"local": ["gemma-3-12b-it-Q4_K_M"]}, "memory", data) == [
-        ("local", "gemma-3-12b-it-Q4_K_M")
-    ]
-    images = list_role_models({"comfyui": ["sdxl.safetensors"]}, "image", data)
-    assert images == [("comfyui", "sdxl.safetensors")]
+def test_save_role_brain_round_trip(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("backend.services.settings_store.SETTINGS_PATH", tmp_path / "settings.json")
+    for role in ("coding", "vision", "planning"):
+        save_role_brain(role, "openrouter", "anthropic/claude-sonnet-5")
+        assert saved_role_brain(role) == ("openrouter", "anthropic/claude-sonnet-5")
+        save_role_brain(role, "", "")
+        assert saved_role_brain(role) == ("", "")
+    save_role_brain("planning", "openrouter", "")  # a host without a model means "not set"
+    assert saved_role_brain("planning") == ("", "")

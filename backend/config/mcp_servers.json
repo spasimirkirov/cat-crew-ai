@@ -1,0 +1,118 @@
+{
+  "_comment": "MCP servers CatCrewAI connects to. Read at start-up and again on Models > Refresh / Reconnect MCP. ${NAME} and ${NAME:-default} are replaced from the environment, so a secret never has to be written here. 'bind_to' is the list of cat ids that get this server's tools, and no other cat sees them.",
+  "version": 1,
+  "servers": {
+    "blender": {
+      "label": "Blender MCP",
+      "app_label": "Blender",
+      "icon": "🧊",
+      "description": "Scene, mesh, material, render and export tools for Blender (bpy). Bound to Pixel.",
+      "enabled": true,
+      "transport": "stdio",
+      "command": "${CATCREW_BLENDER_MCP_COMMAND:-mcp-blender}",
+      "args": ["--host", "${CATCREW_BLENDER_HOST:-127.0.0.1}", "--port", "${CATCREW_BLENDER_PORT:-9876}"],
+      "env": {},
+      "bind_to": ["pixel"],
+      "skill": "blender-mcp",
+      "max_tools": 24,
+      "priority": [
+        "execute_blender_python", "execute_blender_code", "execute_script",
+        "get_scene_info", "scene_info", "object_list", "object_create", "object_transform",
+        "create_material", "material_create", "material_assign", "material_set_color",
+        "render_frame", "render_image", "render_screenshot",
+        "export_fbx", "export_gltf", "import_file"
+      ],
+      "probe": {"tool": "get_version", "timeout": 8},
+      "connect_timeout": 45,
+      "call_timeout": 180,
+      "setup_hint": "pip install mcp-blender, then run: python integrations/blender/install_addon.py (it installs the add-on and starts its socket server whenever Blender opens)."
+    },
+    "unity": {
+      "label": "Unity MCP",
+      "app_label": "the Unity Editor",
+      "icon": "🎮",
+      "description": "Scene, GameObject, script, asset, build and console tools for the Unity Editor. Bound to Pulse.",
+      "enabled": true,
+      "transport": "streamable-http",
+      "url": "${CATCREW_UNITY_MCP_URL:-http://localhost:8080/mcp}",
+      "bind_to": ["pulse"],
+      "skill": "unity-mcp",
+      "max_tools": 24,
+      "priority": [
+        "read_console", "refresh_unity", "create_script", "script_apply_edits", "apply_text_edits", "validate_script",
+        "manage_gameobject", "manage_components", "manage_scene", "manage_editor", "manage_build", "manage_asset",
+        "run_tests", "get_test_job", "find_gameobjects"
+      ],
+      "probe": {"resource": "mcpforunity://editor/state", "timeout": 8},
+      "connect_timeout": 20,
+      "call_timeout": 300,
+      "features": {
+        "compile_check": {
+          "tool_name": "unity_compile_check",
+          "refresh_tool": "refresh_unity",
+          "refresh_args": {"mode": "force", "scope": "scripts", "compile": "request", "wait_for_ready": true},
+          "console_tool": "read_console",
+          "console_args": {"action": "get", "types": ["error"], "count": 40, "format": "plain"},
+          "source_root": "Assets/Scripts",
+          "settle_seconds": 2,
+          "max_errors": 12,
+          "context_lines": 2
+        }
+      },
+      "setup_hint": "Copy integrations/unity/CatCrewUnityMCP.cs into your project's Assets/Editor/ folder (or run python integrations/unity/install_unity_helper.py --project <path>), install the MCP for Unity package, and open the project."
+    },
+    "unity_relay": {
+      "label": "Unity Relay",
+      "app_label": "the Unity Editor",
+      "icon": "🎮",
+      "description": "Unity's relay (relay_win.exe --mcp from ~/.unity/relay), a stdio MCP door to the Unity Editor next to the HTTP one above. Bound to Pulse.",
+      "enabled": true,
+      "transport": "stdio",
+      "command": "${CATCREW_UNITY_RELAY_COMMAND:-~/.unity/relay/relay_win.exe}",
+      "args": ["--mcp"],
+      "env": {},
+      "bind_to": ["pulse"],
+      "skill": "unity-mcp",
+      "max_tools": 24,
+      "connect_timeout": 30,
+      "call_timeout": 300,
+      "setup_hint": "The relay executable must exist at ~/.unity/relay/relay_win.exe (C:\\Users\\<you>\\.unity\\relay\\relay_win.exe) and the Unity Editor must be open. If it lives elsewhere, or on another OS, set CATCREW_UNITY_RELAY_COMMAND to its full path."
+    },
+    "context7": {
+      "label": "Context7 Docs",
+      "app_label": "Context7",
+      "icon": "📚",
+      "description": "Up-to-date, version-specific documentation and code examples for libraries and frameworks (Laravel, Tailwind CSS, PHP, React, Vue, Vite ...). Resolve the library, then query its docs. Bound to every cat that plans, builds or checks code.",
+      "enabled": true,
+      "transport": "streamable-http",
+      "url": "${CATCREW_CONTEXT7_URL:-https://mcp.context7.com/mcp}",
+      "bind_to": ["vanguard", "forge", "pulse", "pixel", "aegis"],
+      "skill": "docs-lookup",
+      "max_tools": 4,
+      "connect_timeout": 20,
+      "call_timeout": 60,
+      "setup_hint": "Needs internet access to mcp.context7.com. No key is required; for higher rate limits create a free key at context7.com and point CATCREW_CONTEXT7_URL at your own endpoint."
+    },
+    "chrome_devtools": {
+      "label": "Chrome DevTools",
+      "app_label": "Chrome",
+      "icon": "🧪",
+      "description": "Google's Chrome DevTools MCP: open a page in a headless Chrome, read console errors and network requests, take screenshots, run performance traces. Bound to Aegis (QA) and Pixel (design).",
+      "enabled": true,
+      "transport": "stdio",
+      "command": "${CATCREW_NPX_COMMAND:-npx}",
+      "args": ["-y", "chrome-devtools-mcp@latest", "--headless", "--isolated"],
+      "env": {},
+      "bind_to": ["aegis", "pixel"],
+      "max_tools": 12,
+      "priority": [
+        "navigate_page", "new_page", "list_console_messages", "list_network_requests", "get_network_request",
+        "take_screenshot", "take_snapshot", "evaluate_script", "click", "fill", "resize_page",
+        "lighthouse_audit"
+      ],
+      "connect_timeout": 120,
+      "call_timeout": 120,
+      "setup_hint": "Needs Node.js 20+ (npx) and Google Chrome installed. The first start downloads chrome-devtools-mcp, which can take a minute."
+    }
+  }
+}

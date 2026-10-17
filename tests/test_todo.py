@@ -2,16 +2,16 @@ from pathlib import Path
 
 import pytest
 
-from jinx_ai import todo
-from jinx_ai.tools import execute_tool, reset_tool_allowlist, set_tool_allowlist, tools_schema_for
-from jinx_ai.trace import bind_session
-from jinx_ai.workspace import current_folders, set_folders, set_workspace
+from backend.services import todo
+from backend.tools import execute_tool, reset_tool_allowlist, set_tool_allowlist, tools_schema_for
+from backend.services.trace import bind_session
+from backend.services.workspace import current_folders, set_folders, set_workspace
 
 
 @pytest.fixture
 def scratch_dir(tmp_path: Path, monkeypatch):
     previous = current_folders()
-    monkeypatch.setattr("jinx_ai.session_fs.SCRATCH_ROOT", tmp_path / "scratch")
+    monkeypatch.setattr("backend.services.session_fs.SCRATCH_ROOT", tmp_path / "scratch")
     set_folders([])
     bind_session("sess-a")
     yield tmp_path / "scratch"
@@ -56,7 +56,7 @@ def test_check_item_does_not_mark_the_whole_goal_from_a_feature_phrase(
     scratch_dir: Path,
 ) -> None:
     todo.seed_from_spec(
-        "Create a React site for Jinx with a holographic widget, MCP, and autonomous coding.\n"
+        "Create a React site for CatCrewAI with a holographic widget, MCP, and autonomous coding.\n"
         "- Write index.html\n"
         "- Write styles.css"
     )
@@ -115,11 +115,11 @@ def test_new_session_does_not_see_other_session_todo(scratch_dir: Path) -> None:
 
 def test_seed_does_not_touch_project_folder(tmp_path: Path, monkeypatch) -> None:
     previous = current_folders()
-    monkeypatch.setattr("jinx_ai.session_fs.SCRATCH_ROOT", tmp_path / "scratch")
+    monkeypatch.setattr("backend.services.session_fs.SCRATCH_ROOT", tmp_path / "scratch")
     set_workspace(tmp_path)
     bind_session("sess-a")
     todo.seed_from_spec("Site.\n- index.html")
-    assert not (tmp_path / ".jinx-ai").exists()
+    assert not (tmp_path / ".cat-crew-ai").exists()
     assert (tmp_path / "scratch" / "sess-a" / "TODO.md").is_file()
     bind_session("")
     set_folders(previous)

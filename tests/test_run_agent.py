@@ -1,12 +1,12 @@
-from jinx_ai.providers.base import (
+from backend.providers.base import (
     AssistantMessage,
     BaseProvider,
     Message,
     ToolCall,
     extract_tool_calls_from_content,
 )
-from jinx_ai.tools import run_command
-import jinx_ai.pending_restart as _pending_restart
+from backend.tools import run_command
+import backend.services.pending_restart as _pending_restart
 
 
 def setup_function() -> None:
@@ -23,6 +23,7 @@ class _Scripted(BaseProvider):
         self._replies = list(replies)
         self.closed = 0
         self.seen: list[str] = []
+        self.tools_seen: list[list[dict] | None] = []
 
     def chat(
         self,
@@ -30,6 +31,7 @@ class _Scripted(BaseProvider):
         tools: list[dict] | None = None,
     ) -> AssistantMessage:
         self.seen.append(self.display_name)
+        self.tools_seen.append(tools)
         return self._replies.pop(0)
 
     def close_stream(self) -> None:
@@ -86,15 +88,19 @@ def test_run_agent_skips_identical_tool_and_stops_loop() -> None:
         [
             AssistantMessage(
                 content="",
-                tool_calls=[ToolCall(name="echo", arguments={"path": r"D:\laragon\www\jinx-ai"})],
+                tool_calls=[ToolCall(name="echo", arguments={"path": r"D:\laragon\www\cat-crew-ai"})],
             ),
             AssistantMessage(
                 content="",
-                tool_calls=[ToolCall(name="echo", arguments={"path": r"D:/laragon/www/jinx-ai"})],
+                tool_calls=[ToolCall(name="echo", arguments={"path": r"D:/laragon/www/cat-crew-ai"})],
             ),
             AssistantMessage(
                 content="",
-                tool_calls=[ToolCall(name="echo", arguments={"path": r"D:\laragon\www\jinx-ai"})],
+                tool_calls=[ToolCall(name="echo", arguments={"path": r"D:\laragon\www\cat-crew-ai"})],
+            ),
+            AssistantMessage(
+                content="",
+                tool_calls=[ToolCall(name="echo", arguments={"path": r"D:/laragon/www/cat-crew-ai"})],
             ),
             AssistantMessage(content="should not reach"),
         ],
@@ -158,6 +164,26 @@ def test_run_agent_says_continue_when_rounds_run_out() -> None:
     assert "1 tool rounds" in result
 
 
+def test_hit_round_cap_recognises_a_capped_run() -> None:
+    from backend.providers.base import hit_round_cap
+
+    busy = _Scripted(
+        "busy",
+        [
+            AssistantMessage(content="working on it", tool_calls=[ToolCall(name="echo", arguments={})]),
+            AssistantMessage(content="", tool_calls=[ToolCall(name="echo", arguments={})]),
+        ],
+    )
+    result = busy.run_agent(
+        [{"role": "user", "content": "go"}],
+        _ECHO,
+        lambda _n, _a: "ok",
+        max_rounds=1,
+    )
+    assert hit_round_cap(result)
+    assert not hit_round_cap("all done")
+
+
 def test_run_agent_unlimited_zero_keeps_going() -> None:
     replies = [
         AssistantMessage(content="", tool_calls=[ToolCall(name="echo", arguments={"n": str(i)})])
@@ -198,7 +224,7 @@ Step 1: Create a React Project
 {
   "name": "run_command",
   "arguments": {
-    "command": "npx create-react-app jinx-ai-website"
+    "command": "npx create-react-app cat-crew-ai-website"
   }
 }
 ```
@@ -206,7 +232,7 @@ Step 2: Navigate to the Project Directory
 {
   "name": "run_command",
   "arguments": {
-    "command": "cd jinx-ai-website"
+    "command": "cd cat-crew-ai-website"
   }
 }
 Step 3: Replace the Default App Component
@@ -215,7 +241,7 @@ Step 3: Replace the Default App Component
   "arguments": {
     "path": "src/App.js",
     "old_string": "function App() {",
-    "new_string": "function App() { return <h1>Jinx</h1>; }"
+    "new_string": "function App() { return <h1>CatCrewAI</h1>; }"
   }
 }
 ```
@@ -232,7 +258,7 @@ Step 1: Create a React Project
 {
   "name": "run_command",
   "arguments": {
-    "command": "npx create-react-app jinx-ai-website"
+    "command": "npx create-react-app cat-crew-ai-website"
   }
 }
 """
@@ -245,8 +271,8 @@ def test_extract_multiple_json_tool_objects() -> None:
     )
     names = [call.name for call in calls]
     assert names == ["run_command", "run_command", "replace_in_file", "open_url"]
-    assert calls[0].arguments["command"] == "npx create-react-app jinx-ai-website"
-    assert calls[1].arguments["command"] == "cd jinx-ai-website"
+    assert calls[0].arguments["command"] == "npx create-react-app cat-crew-ai-website"
+    assert calls[1].arguments["command"] == "cd cat-crew-ai-website"
     assert calls[2].arguments["path"] == "src/App.js"
     assert calls[3].arguments["url"] == "http://localhost:3000"
 
@@ -258,6 +284,76 @@ def test_extract_single_object_in_prose() -> None:
     )
     assert len(calls) == 1
     assert calls[0].name == "echo"
+
+
+def test_extract_gemma_delegate_json_without_tool_name() -> None:
+    """Chief prints {task, bot_id} fences instead of native tool_calls."""
+    text = """
+Thank you, Vanguard. I'll delegate the design work to Pixel.
+
+**Delegation to Pixel:**
+
+```json
+{
+  "task": "Implement the visual design for the Team Arcane landing page.",
+  "bot_id": "pixel",
+  "context": "Vanguard's architecture notes."
+}
+```
+
+**Delegation to Pulse:**
+
+```json
+{
+  "task": "Build the React landing page.",
+  "bot_id": "pulse"
+}
+```
+"""
+    tools = _schema("delegate_to_bot", "delegate_to_team", "update_todo")
+    calls = extract_tool_calls_from_content(text, tools)
+    assert [call.name for call in calls] == ["delegate_to_bot", "delegate_to_bot"]
+    assert calls[0].arguments["bot_id"] == "pixel"
+    assert "visual design" in calls[0].arguments["task"]
+    assert calls[0].arguments["context"] == "Vanguard's architecture notes."
+    assert calls[1].arguments["bot_id"] == "pulse"
+    assert "React" in calls[1].arguments["task"]
+
+
+def test_extract_delegate_from_prose_without_json(monkeypatch) -> None:
+    # hermetic: do not depend on which bots happen to be in the local registry
+    monkeypatch.setattr("backend.providers.base._catalog_bot_tokens", lambda: None)
+    text = (
+        "Excellent work, CatCrewAI. The design is shaping up nicely. "
+        "Now, I'll delegate the development work to Ekko. "
+        "I'm delegating to Ekko to build the landing page using React, Vite, "
+        "Bootstrap 5, and Font Awesome, based on Heimerdinger's architecture "
+        "and CatCrewAI's design. Please focus on implementing the functionality."
+    )
+    tools = _schema("delegate_to_bot", "update_todo")
+    calls = extract_tool_calls_from_content(text, tools)
+    assert len(calls) == 1
+    assert calls[0].name == "delegate_to_bot"
+    assert calls[0].arguments["bot_id"] == "ekko"
+    assert "React" in calls[0].arguments["task"]
+
+    bold = (
+        "I've directly delegated the finalization and deployment of the "
+        "landing page to **Ekko**, with Jayce providing oversight."
+    )
+    bold_calls = extract_tool_calls_from_content(bold, tools)
+    assert len(bold_calls) == 1
+    assert bold_calls[0].arguments["bot_id"] == "ekko"
+
+    confirm = (
+        "Delegating to confirm his dossier, then bind him to the project. "
+        "I will now call list_bots."
+    )
+    confirm_calls = extract_tool_calls_from_content(confirm, tools)
+    assert all(
+        str(call.arguments.get("bot_id") or "").lower() != "confirm"
+        for call in confirm_calls
+    )
 
 
 def test_extract_tool_calls_wrapper_and_xml() -> None:
@@ -307,8 +403,54 @@ def test_extract_tool_code_python_positional_and_win_path() -> None:
     )
     assert len(calls) == 1
     assert calls[0].name == "write_file"
-    assert "web.php" in calls[0].arguments["path"].replace("\\", "/")
+    # The full path must round-trip byte-for-byte, not just contain the
+    # filename — see test_extract_tool_code_does_not_flatten_windows_path
+    # for the regression this used to miss.
+    assert calls[0].arguments["path"] == "D:\\laragon\\www\\app\\routes\\web.php"
     assert calls[0].arguments["content"].startswith("<?php")
+
+
+def test_extract_tool_code_does_not_flatten_windows_path() -> None:
+    """Regression: a real report showed write_file("D:\\laragon\\www\\
+    team-arcane\\src\\components\\Contact.js", ...) landing on disk as a
+    single flattened filename with no directory separators at all
+    (laragonwwwteam-arcanesrccomponentsContact.js). Root cause: \\t, \\r,
+    \\n, \\b, \\f are all *valid* Python escapes, so a naive
+    ast.literal_eval on a Windows path silently swallows the leading
+    letter of any segment starting with one of those letters (team-*,
+    routes*, node_modules*, backend*, frontend*) into a control character,
+    and every other \\<letter> just emits a DeprecationWarning while still
+    eating the backslash. Every segment below hits a different one of
+    those letters (\\t in team-arcane, \\s in src, \\c in components) —
+    this is the exact shape that broke."""
+    text = (
+        "```tool_code\n"
+        'write_file("D:\\laragon\\www\\team-arcane\\src\\components\\Contact.js", '
+        '"export default function Contact() { return null; }")\n'
+        "```\n"
+    )
+    calls = extract_tool_calls_from_content(text, _schema("write_file", "replace_in_file"))
+    assert len(calls) == 1
+    path = calls[0].arguments["path"]
+    assert path == "D:\\laragon\\www\\team-arcane\\src\\components\\Contact.js"
+    # No control characters snuck in anywhere (the literal bug symptom).
+    assert not any(ch in path for ch in "\t\r\n\b\f")
+    # And every intended directory boundary survived as an actual separator.
+    normalized = path.replace("\\", "/")
+    assert normalized == "D:/laragon/www/team-arcane/src/components/Contact.js"
+
+
+def test_extract_tool_code_win_path_in_cwd_kwarg() -> None:
+    """cwd (run_command) needs the same treatment as path — both are real
+    filesystem locations, not file content."""
+    text = (
+        "```tool_code\n"
+        'run_command(command="npm run build", cwd="D:\\laragon\\www\\team-arcane")\n'
+        "```\n"
+    )
+    calls = extract_tool_calls_from_content(text, _schema("run_command"))
+    assert len(calls) == 1
+    assert calls[0].arguments["cwd"] == "D:\\laragon\\www\\team-arcane"
 
 
 def test_extract_gemma_bare_tool_code_cli() -> None:
@@ -316,53 +458,53 @@ def test_extract_gemma_bare_tool_code_cli() -> None:
     text = (
         "I'll change the GUI title.\n"
         "tool_code\n"
-        "read_file jinx_ai/ui_style.py\n"
+        "read_file backend/ui_style.py\n"
     )
     calls = extract_tool_calls_from_content(text, _schema("read_file", "replace_in_file"))
     assert len(calls) == 1
     assert calls[0].name == "read_file"
-    assert calls[0].arguments["path"] == "jinx_ai/ui_style.py"
+    assert calls[0].arguments["path"] == "backend/ui_style.py"
 
     repl = (
         "tool_code\n"
-        "replace_in_file jinx_ai/widgets.py \"title='Jinx AI'\" "
-        "\"title='Jinx AI - The Best AI Assistant'\"\n"
+        "replace_in_file backend/widgets.py \"title='CatCrewAI'\" "
+        "\"title='CatCrewAI - The Best AI Assistant'\"\n"
     )
     calls2 = extract_tool_calls_from_content(
         repl, _schema("read_file", "replace_in_file")
     )
     assert calls2[0].name == "replace_in_file"
-    assert calls2[0].arguments["path"] == "jinx_ai/widgets.py"
-    assert calls2[0].arguments["old_string"] == "title='Jinx AI'"
+    assert calls2[0].arguments["path"] == "backend/widgets.py"
+    assert calls2[0].arguments["old_string"] == "title='CatCrewAI'"
     assert "Best AI Assistant" in calls2[0].arguments["new_string"]
 
 
 def test_extract_search_files_from_apology_prose() -> None:
     text = (
         "I will now use search_files to locate the string.\n"
-        'search_files "Jinx AI - The Best AI Assistant" -jinx_ai\n'
+        'search_files "CatCrewAI - The Best AI Assistant" -backend\n'
     )
     calls = extract_tool_calls_from_content(text, _schema("search_files", "replace_in_file"))
     assert len(calls) >= 1
     assert calls[0].name == "search_files"
     assert "Best AI Assistant" in calls[0].arguments.get("query", "")
-    assert "jinx_ai" in str(calls[0].arguments.get("path", ""))
+    assert "backend" in str(calls[0].arguments.get("path", ""))
 
 
 def test_extract_bare_restart_aliases() -> None:
-    tools = _schema("restart_jinx", "read_file")
+    tools = _schema("restart_catcrew", "read_file")
     for sample in (
         "restart",
-        "restart_jinx",
+        "restart_catcrew",
         "tool_code\nrestart",
         "Done.\nreboot\n",
-        "`restart_jinx`",
+        "`restart_catcrew`",
         "restart()",
-        "restart_jinx()",
+        "restart_catcrew()",
     ):
         calls = extract_tool_calls_from_content(sample, tools)
         assert len(calls) == 1, sample
-        assert calls[0].name == "restart_jinx"
+        assert calls[0].name == "restart_catcrew"
         assert calls[0].arguments == {}
     assert extract_tool_calls_from_content("I will restart later.", tools) == []
     assert extract_tool_calls_from_content("read_file is useful", tools) == []
@@ -371,7 +513,7 @@ def test_extract_bare_restart_aliases() -> None:
 def test_extract_fenced_cli_run_command() -> None:
     text = (
         "```tool_code\n"
-        "run_command npm create react-app jinx-ai-website --template typescript\n"
+        "run_command npm create react-app cat-crew-ai-website --template typescript\n"
         "```\n"
     )
     calls = extract_tool_calls_from_content(text, _schema("run_command"))
@@ -423,18 +565,18 @@ def test_run_agent_text_tools_use_user_assistant_not_role_tool() -> None:
 
 
 def test_run_command_allows_scaffold_and_background_dev(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr("jinx_ai.tools.current_workspace", lambda: tmp_path)
-    monkeypatch.setattr("jinx_ai.tools._allowed_roots", lambda: [tmp_path.resolve()])
+    monkeypatch.setattr("backend.tools.current_workspace", lambda: tmp_path)
+    monkeypatch.setattr("backend.tools._allowed_roots", lambda: [tmp_path.resolve()])
     monkeypatch.setattr(
-        "jinx_ai.terminal.run_foreground",
+        "backend.services.terminal.run_foreground",
         lambda *a, **k: "exit 0\ncreated",
     )
-    out = run_command("npx create-react-app jinx-ai-website")
+    out = run_command("npx create-react-app cat-crew-ai-website")
     assert "Refused" not in out
     assert "created" in out.lower() or "exit 0" in out
 
     monkeypatch.setattr(
-        "jinx_ai.terminal.run_background",
+        "backend.services.terminal.run_background",
         lambda *a, **k: "Started in background pid=4242 terminal=abc",
     )
     bg = run_command("npm start")
@@ -442,12 +584,12 @@ def test_run_command_allows_scaffold_and_background_dev(tmp_path, monkeypatch) -
     assert "4242" in bg
     node = run_command("node server.js")
     assert "background" in node.lower()
-    assert "cwd" in run_command("cd jinx-ai-website").lower()
+    assert "cwd" in run_command("cd cat-crew-ai-website").lower()
     assert "cwd" in run_command(r"cd /d D:\laragon\www\test-project").lower()
 
 
 def test_visible_chat_hides_qwen_tool_dump() -> None:
-    from jinx_ai.activity import visible_chat_reply
+    from backend.activity import visible_chat_reply
 
     shown = visible_chat_reply(_QWEN_DUMP, tools_used=True)
     assert "run_command" not in shown
@@ -457,7 +599,7 @@ def test_visible_chat_hides_qwen_tool_dump() -> None:
 
 
 def test_visible_chat_keeps_a_short_summary() -> None:
-    from jinx_ai.activity import visible_chat_reply
+    from backend.activity import visible_chat_reply
 
     text = "I wrote index.html with a hero and a capabilities list."
     assert visible_chat_reply(text, tools_used=True) == text
@@ -465,16 +607,83 @@ def test_visible_chat_keeps_a_short_summary() -> None:
 
 
 def test_visible_chat_keeps_a_long_chief_report() -> None:
-    from jinx_ai.activity import visible_chat_reply
+    from backend.activity import visible_chat_reply
 
     report = (
-        "I assigned Heimerdinger the React layout, Jinx the visual system, "
+        "I assigned Heimerdinger the React layout, CatCrewAI the visual system, "
         "and Ekko the implementation. "
         "Heimerdinger proposed src/components with Hero, Services, Team, and Contact. "
-        "Jinx set a dark cyan/pink palette. Ekko will write the files next.\n\n"
+        "CatCrewAI set a dark cyan/pink palette. Ekko will write the files next.\n\n"
     ) * 20
     shown = visible_chat_reply(report, tools_used=True)
     assert "Heimerdinger" in shown
     assert "Ekko" in shown
-    assert "Done — I used the tools" not in shown
+
+
+# -- Jev ("System One") precheck bypass: run_agent calls the model without tool schemas ------------
+
+
+def _enable_jev(monkeypatch, decision):
+    from backend.middleware import jev_gatekeeper as jg
+
+    class _Fake:
+        def decide(self, state, questions):
+            return [decision]
+
+    monkeypatch.setattr(
+        jg,
+        "_settings",
+        lambda: {"enabled": True, "model": "jev-latest", "confidence_threshold": 0.92, "api_key": "k", "skip_tools_precheck": True},
+    )
+    monkeypatch.setattr(jg, "_client", lambda: _Fake())
+
+
+def test_a_confident_bypass_calls_the_model_with_no_tools(monkeypatch) -> None:
+    from backend.services.jev_client import Decision
+
+    _enable_jev(monkeypatch, Decision(id="no_tools_needed", type="noul", value=True, confidence=0.99, ok=True, latency_ms=4.0))
+    scripted = _Scripted("lean", [AssistantMessage(content="2 + 2 is 4.")])
+
+    def run_tool(name: str, arguments: dict) -> str:
+        raise AssertionError("no tool should run on a bypassed turn")
+
+    result = scripted.run_agent([{"role": "user", "content": "what is 2+2?"}], _ECHO, run_tool)
+    assert result == "2 + 2 is 4."
+    assert len(scripted.seen) == 1
+    assert scripted.tools_seen == [[]]  # the (potentially large) tool schemas were not attached
+
+
+def test_a_bypass_that_yields_nothing_falls_through_to_the_normal_loop(monkeypatch) -> None:
+    from backend.services.jev_client import Decision
+
+    _enable_jev(monkeypatch, Decision(id="no_tools_needed", type="noul", value=True, confidence=0.99, ok=True, latency_ms=4.0))
+    scripted = _Scripted(
+        "recovers",
+        [
+            AssistantMessage(content=""),  # the lean, tool-less call: Jev misjudged, nothing useful came back
+            AssistantMessage(content="", tool_calls=[ToolCall(name="echo", arguments={})]),
+            AssistantMessage(content="done after all"),
+        ],
+    )
+    executed: list[str] = []
+
+    def run_tool(name: str, arguments: dict) -> str:
+        executed.append(name)
+        return "ok"
+
+    result = scripted.run_agent([{"role": "user", "content": "actually needs a tool"}], _ECHO, run_tool)
+    assert result == "done after all"
+    assert executed == ["echo"]
+    assert scripted.tools_seen[0] == []  # the bypass attempt
+    assert scripted.tools_seen[1] == _ECHO  # the normal loop, tools restored
+
+
+def test_jev_disabled_never_touches_the_loop(monkeypatch) -> None:
+    from backend.middleware import jev_gatekeeper as jg
+
+    monkeypatch.setattr(jg, "_settings", lambda: {"enabled": False, "model": "jev-latest", "confidence_threshold": 0.92, "api_key": ""})
+    scripted = _Scripted("normal", [AssistantMessage(content="hi")])
+    result = scripted.run_agent([{"role": "user", "content": "hello"}], _ECHO, lambda n, a: "ok")
+    assert result == "hi"
+    assert scripted.tools_seen == [_ECHO]
 

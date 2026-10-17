@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import json
 
-from jinx_ai.connectors.mcp_client import (
+from backend.connectors.mcp_client import (
     McpSession,
     _format_tool_result,
     _parse_sse_json,
     load_mcp_tools,
 )
-from jinx_ai.connectors.model import ConnectorConfig
+from backend.connectors.model import ConnectorConfig
 
 
 class _FakeResp:
@@ -80,7 +80,7 @@ def test_session_list_and_call(monkeypatch):
             )
         return _FakeResp({"error": {"code": -1, "message": method}}, status=500)
 
-    monkeypatch.setattr("jinx_ai.connectors.mcp_client.requests.post", fake_post)
+    monkeypatch.setattr("backend.connectors.mcp_client.requests.post", fake_post)
     cfg = ConnectorConfig(
         id="custom-mcp",
         name="Custom",

@@ -1,33 +1,25 @@
-# jinx-ai
+# cat-crew-ai
 
-**Jinx AI** is a Windows **multi-bot studio**: Team Members → Teams → Projects → Project Explorer (group chat + 1:1). Local agents that code, plus the tools already in this repo (files, shell, git, search, ComfyUI, llama-server).
-
-Product spec (also loaded every chat turn): **[docs/JINX.md](docs/JINX.md)**. Overlay internals: [docs/body.md](docs/body.md).
-
-Launch lands on **Home** (Projects and Teams). **New project** can pick the shared Computer folder, staff teams, and optionally Kickoff Chief. There is no Assistant/Developer chat-mode landing.
-
-## Requirements
-
-- Python 3.10+ (tested with 3.13)
-- A GPU is recommended. **AI Models → Local** downloads llama-server; **Hugging Face Hub** pulls GGUFs.
-
-## Install
+**CatCrewAI** is a multi-agent desktop studio: a crew of eight specialised AI agents (Cipher, Vanguard, Pixel, Pulse, Aegis, Lex, Blaze, Forge) that plans, builds, tests and ships a project as a team, while you watch every step live and stay in control. A Python FastAPI backend does the work; a Tauri + React window shows it.
 
 ```powershell
-cd c:\Development\jinx-ai
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
+Copy-Item .env.example .env      # optional overrides
+python scripts/init_catcrew_team.py
+cd frontend
+npm install
+npm run tauri dev                # opens the desktop window and starts the backend
 ```
 
-## Run
+Documentation lives in [`docs/`](docs/):
 
-```powershell
-python main.py
-```
+| Document | What it covers |
+| --- | --- |
+| [docs/README.md](docs/README.md) | Overview, tech stack, quickstart, the eight-cat catalog, repository map |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Processes and threads, the live event stream, context isolation, the SOP, thread-safe SQLite, the skill and tool engine, the frontend |
+| [docs/API.md](docs/API.md) | The REST and WebSocket contract the UI is built on |
+| [todo/TECHNICAL_DEBT_AND_OPTIMIZATIONS.md](todo/TECHNICAL_DEBT_AND_OPTIMIZATIONS.md) | Audit findings and the prioritised backlog |
 
-Tray: **Open Jinx**. Ctrl+C in the terminal stops the app. One process per `data/` folder.
-
-Catalog: `data/platform/registry.json`. Official built-in team: `python scripts/init_arcane_team.py` (Arcane). Optional: `python scripts/init_marketplace_bots.py --overwrite`.
-
-Brains, keys, connectors, and agent timeout live under **AI Models** and **Settings** (see JINX.md). Default OS home for models: `C:\Jinx-AI`.
+Agent and contributor rules are in [AGENTS.md](AGENTS.md).

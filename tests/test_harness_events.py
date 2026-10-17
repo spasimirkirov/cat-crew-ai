@@ -4,25 +4,25 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jinx_ai.connectors.model import ConnectorConfig
-from jinx_ai.harness.approvals import (
+from backend.connectors.model import ConnectorConfig
+from backend.harness.approvals import (
     gate_tool,
     needs_approval,
     reset_approval_hook,
     set_approval_hook,
 )
-from jinx_ai.harness.deferred import (
+from backend.harness.deferred import (
     clear_loaded_tools,
     extra_tool_schemas,
     list_connectors_text,
     load_connector_tools_text,
 )
-from jinx_ai.harness.events import emit_activity, emit_tool_call, tool_info_for_name
-from jinx_ai.harness.offload import maybe_offload_tool_result
-from jinx_ai.session_fs import ensure_session_work_dir
-from jinx_ai.settings_store import save_agent_settings
-from jinx_ai.tools import execute_tool, tools_schema_for
-from jinx_ai.trace import bind_session
+from backend.harness.events import emit_activity, emit_tool_call, tool_info_for_name
+from backend.harness.offload import maybe_offload_tool_result
+from backend.services.session_fs import ensure_session_work_dir
+from backend.services.settings_store import save_agent_settings
+from backend.tools import execute_tool, tools_schema_for
+from backend.services.trace import bind_session
 
 
 def test_tool_info_connector_vs_builtin():
@@ -39,7 +39,7 @@ def test_emit_activity_does_not_raise():
 
 
 def test_offload_writes_scratch(tmp_path, monkeypatch):
-    monkeypatch.setattr("jinx_ai.session_fs.SCRATCH_ROOT", tmp_path / "scratch")
+    monkeypatch.setattr("backend.services.session_fs.SCRATCH_ROOT", tmp_path / "scratch")
     bind_session("offload-test")
     ensure_session_work_dir("offload-test")
     big = "x" * 12_000
@@ -66,12 +66,12 @@ def test_deferred_meta_tools_in_developer_schema():
 
 def test_list_connectors_and_github_load(tmp_path, monkeypatch):
     store = tmp_path / "connectors.json"
-    monkeypatch.setattr("jinx_ai.connectors.store.STORE_PATH", store)
+    monkeypatch.setattr("backend.connectors.store.STORE_PATH", store)
     clear_loaded_tools()
     text = list_connectors_text()
     assert "connector" in text.lower() or "Settings" in text
 
-    from jinx_ai.connectors import set_enabled, set_token, upsert_connector
+    from backend.connectors import set_enabled, set_token, upsert_connector
 
     upsert_connector(
         ConnectorConfig(
@@ -96,7 +96,7 @@ def test_list_connectors_and_github_load(tmp_path, monkeypatch):
 def test_approval_gate_emits_when_enabled(tmp_path, monkeypatch):
     settings = tmp_path / "settings.json"
     settings.write_text("{}", encoding="utf-8")
-    monkeypatch.setattr("jinx_ai.settings_store.SETTINGS_PATH", settings)
+    monkeypatch.setattr("backend.services.settings_store.SETTINGS_PATH", settings)
     save_agent_settings({"tool_approval": True})
     assert needs_approval("run_command")
     assert needs_approval("connector__github__x")
@@ -116,7 +116,7 @@ def test_approval_gate_emits_when_enabled(tmp_path, monkeypatch):
 
 
 def test_ask_user_with_hook():
-    from jinx_ai.harness.ask_user import ask_user, reset_ask_user_hook, set_ask_user_hook
+    from backend.harness.ask_user import ask_user, reset_ask_user_hook, set_ask_user_hook
 
     token = set_ask_user_hook(lambda prompt, choices: choices[0] if choices else "ok")
     try:
@@ -127,7 +127,7 @@ def test_ask_user_with_hook():
 
 
 def test_catalog_loads():
-    from jinx_ai.connectors import load_catalog
+    from backend.connectors import load_catalog
 
     cats = load_catalog()
     ids = {c.id for c in cats}

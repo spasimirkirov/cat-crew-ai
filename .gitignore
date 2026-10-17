@@ -11,6 +11,14 @@ env/
 build/
 dist/
 data/
-jinx_ai/mixamo_animations/.cache/
-.jinx/
-.jinx-ai/
+.cat-crew-ai/
+
+# frontend (Tauri + React)
+frontend/node_modules/
+frontend/dist/
+frontend/src-tauri/target/
+frontend/src-tauri/gen/
+# a Windows-style default home created on Linux by mistake
+C:*
+legacy/mixamo_animations/.cache/
+graphify-out

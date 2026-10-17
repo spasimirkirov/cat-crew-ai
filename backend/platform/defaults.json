@@ -1,0 +1,14 @@
+{
+  "global_mcp_tools": [],
+  "global_tools": ["read_skill", "system_time"],
+  "chief": {
+    "id": "crew",
+    "name": "Cat Crew",
+    "system_prompt": "",
+    "mcp_tools": [],
+    "tools": [],
+    "max_rounds": 12
+  },
+  "bots": [],
+  "projects": []
+}
