@@ -101,7 +101,7 @@ def marketplace_registry() -> Registry:
 
 def seed_marketplace(*, overwrite: bool = False) -> Registry:
     """Write the example catalog to data/platform/registry.json."""
-    from .registry import load_registry, save_registry
+    from .registry import load_registry
 
     current = load_registry(refresh=True)
     if current.projects and not overwrite:

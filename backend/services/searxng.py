@@ -150,21 +150,3 @@ def search_searxng_images(query: str, limit: int = 8) -> list[tuple[str, str, st
     return []
 
 
-def ping_searxng(url: str = "") -> bool:
-    origin = (url or (searxng_urls()[0] if searxng_urls() else "")).rstrip("/")
-    if not origin:
-        return False
-    try:
-        response = requests.get(
-            f"{origin}/search",
-            params={"q": "catcrew", "format": "json"},
-            timeout=1.6,
-            headers={"Accept": "application/json", "User-Agent": "CatCrewAI/0.1"},
-        )
-        if response.status_code >= 400:
-            return False
-        if (response.headers.get("Content-Type") or "").lower().find("json") >= 0:
-            return True
-        return (response.text or "").lstrip().startswith("{")
-    except Exception:  # noqa: BLE001
-        return False

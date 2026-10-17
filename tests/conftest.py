@@ -56,7 +56,6 @@ def isolated(tmp_path, monkeypatch):
     # platform JSON): never let a test write into the real one.
     home = tmp_path / "catcrew_home"
     monkeypatch.setattr(config_mod, "CATCREW_HOME", home)
-    monkeypatch.setattr(registry_mod, "CATCREW_HOME", home)
     bus.reset_bus()
     activity_board.reset()
     usage_meter.reset_meter()  # live counters and context gauges are process-wide

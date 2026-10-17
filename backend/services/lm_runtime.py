@@ -98,13 +98,6 @@ def loaded_model_note(host: str, model: str, caps: list[str] | None) -> str:
     return " ".join(parts)
 
 
-def probe_host(kind: str) -> HostSnapshot:
-    """A live snapshot of one host (see :func:`model_discovery.probe`)."""
-    from backend.services.model_discovery import probe
-
-    return probe(kind)
-
-
 def model_names_match(left: str, right: str) -> bool:
     a = (left or "").strip().lower()
     b = (right or "").strip().lower()

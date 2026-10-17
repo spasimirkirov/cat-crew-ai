@@ -154,9 +154,6 @@ class _Steerable:
     def aborted(self) -> bool:
         return self._abort.is_set()
 
-    def is_running(self) -> bool:
-        t = self._thread
-        return bool(t and t.is_alive())
 
     def start(self, name: str = "catcrew-turn") -> None:
         self._thread = threading.Thread(target=self.run, name=name, daemon=True)

@@ -11,7 +11,6 @@ import re
 import threading
 from dataclasses import dataclass, field
 from typing import Any, Callable
-from urllib.parse import urljoin
 
 import requests
 
@@ -288,8 +287,3 @@ def load_mcp_tools(
     return schemas, executors, summary
 
 
-def list_mcp_tools(cfg: ConnectorConfig) -> list[dict]:
-    try:
-        return open_session(cfg).list_tools()
-    except Exception:  # noqa: BLE001
-        return []

@@ -143,31 +143,6 @@ def set_status_word(bot_id: str, word: str) -> None:
     _publish(bot_id)
 
 
-def get_status_word(bot_id: str) -> str:
-    """Return the sidebar's current live-status word for ``bot_id``,
-    defaulting to "idle" for a bot that has never reported one."""
-    key = _key(bot_id)
-    with _lock:
-        return _status_word.get(key, "idle")
-
-
-def restore_activity(bot_id: str, text: str, ts: float) -> None:
-    """Restore a previously recorded activity line and timestamp verbatim.
-
-    Unlike ``set_activity``/``touch``, this does not stamp "now" — it is
-    for a session/thread swap rebuilding the sidebar's bot rows from a
-    session's own persisted snapshot (``session["bot_activities"]``), where
-    the whole point is to show the real last-active time instead of
-    resetting it to the moment the UI happened to redraw.
-    """
-    key = _key(bot_id)
-    if not key:
-        return
-    with _lock:
-        _activity[key] = (str(text or "").strip(), float(ts or 0.0))
-    _publish(bot_id)
-
-
 def display_status(bot_id: str) -> str:
     """The word a sidebar status pill should show *right now*.
 

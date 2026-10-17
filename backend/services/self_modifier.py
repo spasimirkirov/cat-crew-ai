@@ -13,7 +13,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import requests
 
 from backend.config import BASE_DIR, SELF_HEAL_MAX_ATTEMPTS, SELF_HEAL_TEST_TIMEOUT
 

@@ -580,12 +580,6 @@ class MCPManager:
                 cls._instance = cls()
             return cls._instance
 
-    @classmethod
-    def reset_instance(cls) -> None:
-        with cls._instance_lock:
-            inst, cls._instance = cls._instance, None
-        if inst is not None:
-            inst.stop()
 
     def __init__(self, configs: list[ServerConfig] | None = None, *, config_path: Path | str | None = None) -> None:
         self._config_path = config_path

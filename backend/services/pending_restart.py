@@ -54,10 +54,6 @@ def clear_touched_catcrew_files() -> None:
     _touched_catcrew.clear()
 
 
-def restart_already_scheduled() -> bool:
-    return bool(_restart_scheduled)
-
-
 def mark_restart_scheduled() -> None:
     global _restart_scheduled
     _restart_scheduled = True
@@ -73,15 +69,6 @@ def begin_verify_pass(pending: dict[str, Any]) -> None:
     _resume_active = True
     _resume_goal = str(pending.get("goal") or pending.get("reason") or "").strip()
     clear_touched_catcrew_files()
-
-
-def resume_context() -> dict[str, Any]:
-    return {
-        "active": _resume_active,
-        "generation": _resume_generation,
-        "goal": _resume_goal,
-        "max_generations": MAX_GENERATIONS,
-    }
 
 
 def reset_runtime_state() -> None:

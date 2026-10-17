@@ -572,22 +572,10 @@ def _cli_line_to_call(line: str, allowed: set[str]) -> ToolCall | None:
     return ToolCall(name=name, arguments=args)
 
 
-def _parse_cli_style_calls(
-    text: str,
-    allowed: set[str],
-    *,
-    require_marker: bool = True,
-) -> list[ToolCall]:
-    """Gemma prints bare ``tool_code`` then ``read_file path`` (no parentheses)."""
+def _parse_cli_style_calls(text: str, allowed: set[str]) -> list[ToolCall]:
+    """A ``tool_code`` marker line, then ``read_file path`` (no parentheses)."""
     calls: list[ToolCall] = []
     lines = (text or "").splitlines()
-    if not require_marker:
-        for line in lines:
-            call = _cli_line_to_call(line, allowed)
-            if call is not None:
-                calls.append(call)
-        return calls
-
     i = 0
     while i < len(lines):
         if _TOOL_CODE_MARK.match(lines[i]):
@@ -605,52 +593,6 @@ def _parse_cli_style_calls(
                 calls.append(call)
         i += 1
     return calls
-
-
-_DELEGATE_PROSE = re.compile(
-    r"(?is)\b(?:re[\s-]*)?delegat(?:e|ed|ing)\b.{0,160}?\bto\s+"
-    r"\*{0,2}([A-Za-z][A-Za-z\-']+)\*{0,2}"
-    r"(?:\s+to\s+)?([^.\n]{8,500})?"
-)
-_DELEGATE_PROSE_SKIP = frozenset(
-    {
-        "the",
-        "a",
-        "an",
-        "our",
-        "my",
-        "this",
-        "that",
-        "entire",
-        "all",
-        "everyone",
-        "each",
-        "them",
-        "him",
-        "her",
-        "you",
-        "us",
-        "me",
-        "someone",
-        "anyone",
-        "team",
-        "bot",
-        "member",
-        "confirm",
-        "bind",
-        "dossier",
-        "first",
-        "now",
-        "call",
-        "find",
-        "list",
-        "bots",
-        "staff",
-        "please",
-        "just",
-        "themself",
-    }
-)
 
 
 def _catalog_bot_tokens() -> set[str] | None:
@@ -672,73 +614,18 @@ def _catalog_bot_tokens() -> set[str] | None:
     return tokens
 
 
-def _harvest_delegate_prose(
-    text: str,
-    allowed: set[str],
-    existing: list[ToolCall],
-) -> list[ToolCall]:
-    """Gemma Chief narrates 'I'm delegating to Ekko to build…' without JSON."""
-    if "delegate_to_bot" not in allowed or not text:
-        return []
-    taken = {
-        str(call.arguments.get("bot_id") or "").strip().lower()
-        for call in existing
-        if call.name == "delegate_to_bot"
-    }
-    best: dict[str, str] = {}
-    for match in _DELEGATE_PROSE.finditer(text):
-        who = match.group(1).strip().lower()
-        if not who or who in _DELEGATE_PROSE_SKIP or who in taken:
-            continue
-        tokens = _catalog_bot_tokens()
-        if tokens is not None and who not in tokens:
-            continue
-        rest = (match.group(2) or "").strip(" ,;:-")
-        rest = re.sub(r"^\*+|\*+$", "", rest).strip()
-        task = rest if len(rest) >= 12 else (
-            "Complete the user's current request until the work is on disk."
-        )
-        prev = best.get(who)
-        if prev is None or len(task) > len(prev):
-            best[who] = task
-    return [
-        ToolCall(name="delegate_to_bot", arguments={"bot_id": who, "task": task})
-        for who, task in best.items()
-    ]
-
-
-def _harvest_action_lines(text: str, allowed: set[str]) -> list[ToolCall]:
-    """Pick up tool lines Gemma drops into chat (``restart``, ``search_files …``)."""
-    calls: list[ToolCall] = []
-    names = sorted(set(allowed) | set(_TOOL_ALIASES), key=len, reverse=True)
-    if not names:
-        return calls
-    keys = "|".join(re.escape(name) for name in names)
-    pattern = re.compile(rf"^(?:tool_code\s+)?(?:{keys})\b", re.I)
-    for line in (text or "").splitlines():
-        stripped = line.strip().strip("`")
-        if not pattern.match(stripped):
-            continue
-        call = _cli_line_to_call(stripped, allowed)
-        if call is not None:
-            calls.append(call)
-    return calls
-
-
-
 def extract_tool_calls_from_content(
     content: str | None,
     tools: list[dict[str, Any]],
-    *,
-    strict: bool = False,
 ) -> list[ToolCall]:
-    """Qwen/Gemma often print tool JSON or python-style calls instead of native tool_calls.
+    """Tool calls a model printed as text instead of sending native ``tool_calls``.
 
-    ``strict`` is for a model that can call tools natively (it already did this run, or its host
-    always can): only explicit call syntax counts (a JSON tool-call object, a fenced call, Qwen's
-    XML). The loose harvesters -- a bare ``restart`` line, ``search_files "…"``, "I'm delegating to
-    Pulse…" -- are skipped, because a model that quotes a fetched web page or a file would
-    otherwise run whatever command-like line that text contains (prompt injection)."""
+    Every host CatCrewAI talks to is a cloud host with native function calling, so only explicit
+    call syntax counts: a JSON tool-call object, a python-style call inside a code fence, a
+    ``tool_code`` block, gpt-oss harmony and Qwen XML. The loose harvesters written for local
+    models (a bare ``restart`` line, ``search_files "…"`` in prose, "I'm delegating to Pulse…")
+    are gone: a model that quotes a fetched web page or a file would otherwise run whatever
+    command-like line that text contains (prompt injection)."""
     if not content:
         return []
     allowed = _allowed_tool_names(tools)
@@ -759,22 +646,14 @@ def extract_tool_calls_from_content(
             except json.JSONDecodeError:
                 continue
             calls.extend(_calls_from_obj(data, allowed))
-        if strict and chunk is content:
-            # A bare ``write_file("x", "y")`` in running prose may be quoted text; in strict mode a
-            # python-style call only counts inside a code fence.
+        if chunk is content:
+            # A bare ``write_file("x", "y")`` in running prose may be quoted text: a python-style
+            # call only counts inside a code fence.
             continue
         calls.extend(_parse_python_style_calls(chunk, allowed))
 
-    # Bare tool_code blocks in the full reply (Gemma's favorite broken form).
-    calls.extend(_parse_cli_style_calls(content, allowed, require_marker=True))
-    if not strict:
-        # Inside fences, lines are already the tool body — no marker required.
-        for body in fence_bodies:
-            calls.extend(_parse_cli_style_calls(body, allowed, require_marker=False))
-        # Harvest lines like ``restart`` / ``search_files "…"`` dropped into chat.
-        calls.extend(_harvest_action_lines(content, allowed))
-        # Narrated "I'm delegating to Ekko to build…" with no JSON wrapper.
-        calls.extend(_harvest_delegate_prose(content, allowed, calls))
+    # An explicit ``tool_code`` marker followed by one call line.
+    calls.extend(_parse_cli_style_calls(content, allowed))
 
     if "to=functions." in content:
         for match in _HARMONY_CALL.finditer(content):
@@ -787,7 +666,7 @@ def extract_tool_calls_from_content(
         body = match.group(2)
         inner = body.strip()
         if inner.startswith("{") or inner.startswith("```"):
-            calls.extend(extract_tool_calls_from_content(inner, tools, strict=strict))
+            calls.extend(extract_tool_calls_from_content(inner, tools))
             continue
         args: dict[str, Any] = {}
         for key, val in _QWEN_ARG.findall(body):
@@ -949,10 +828,14 @@ class BaseProvider(ABC):
         never receives a long transcript. ``on_compressed(before, after, model)`` reports it.
         """
         from ..harness.loop_guard import VOLATILE_REPEATS, VOLATILE_TOOLS, WorldClock
+        from ..harness.pruning import ToolResultPruner
         from ..middleware import jev_gatekeeper
         from ..services.compaction import ContextBudget
 
         budget = ContextBudget(on_compressed=on_compressed)
+        # Cheap first: trim stale tool results (harness/pruning.py) before the budget would pay a
+        # model call to summarise the older turns.
+        pruner = ToolResultPruner()
         # What Jev judges each tool call against: the request as it stood before the loop added
         # its own nudges (see jev_gatekeeper.turn_goal).
         goal = jev_gatekeeper.turn_goal(messages)
@@ -982,10 +865,6 @@ class BaseProvider(ABC):
         explore_n = 0
         explore_steered = False
         cut_offs = 0
-        # A cloud host always speaks native function calling; a local model proves it the first
-        # time it returns a real tool_calls list. From then on, text is only parsed for explicit
-        # call syntax (see ``extract_tool_calls_from_content(strict=True)``).
-        native_tools = str(getattr(self, "host_id", "") or "") == "openrouter"
         try:
             # Jev ("System One"): once per turn, before the coding model gets its tool schemas. A
             # no-op unless the gatekeeper is on and confident no tools are needed (see
@@ -1031,6 +910,7 @@ class BaseProvider(ABC):
                 from ..harness.deferred import extra_tool_schemas
 
                 round_tools = list(tools) + extra_tool_schemas()
+                pruner.apply(messages, lambda: budget.resolve(current)[1])
                 compressed = budget.apply(messages, current)
                 from ..services.usage_meter import report_context
 
@@ -1064,12 +944,8 @@ class BaseProvider(ABC):
                     continue
 
                 from_text = False
-                if reply.tool_calls:
-                    native_tools = True
-                else:
-                    reply.tool_calls = extract_tool_calls_from_content(
-                        reply.content, round_tools, strict=native_tools
-                    )
+                if not reply.tool_calls:
+                    reply.tool_calls = extract_tool_calls_from_content(reply.content, round_tools)
                     if reply.tool_calls:
                         from_text = True
                         print(
@@ -1176,26 +1052,27 @@ class BaseProvider(ABC):
                             tool_info=info,
                             call_id=str(call.id or ""),
                         )
-                        from ..harness.approvals import gate_tool
-                        from ..harness.offload import maybe_offload_tool_result
+                        from ..harness import hooks
 
-                        # A prefetched call is read-only: the approval gate and Jev never stop one.
-                        denied = None if index in prefetched else gate_tool(call.name, call.arguments)
-                        if denied is None and index not in prefetched:
-                            # Jev ("System One"): short-circuits a call it is confident is wrong
-                            # before it runs, so a broken edit never gets the chance to fail, get
-                            # read back and be retried -- the repair loop this is meant to prevent.
-                            denied = jev_gatekeeper.guard_tool_call(
-                                call.name, call.arguments, messages=messages, goal=goal
-                            )
+                        # The lifecycle hooks (harness/hooks.py): approval gate and Jev before the
+                        # call, large-result offload and the untrusted wrapper after it. A
+                        # prefetched call is read-only and already ran: no before-hook stops one.
+                        ctx = hooks.ToolCallContext(
+                            call.name,
+                            call.arguments,
+                            messages=messages,
+                            goal=goal,
+                            prefetched=index in prefetched,
+                            call_id=str(call.id or ""),
+                        )
+                        denied = hooks.run_before(ctx)
                         if denied:
                             result = denied
                         elif index in prefetched:
                             result = _parallel_result(prefetched.pop(index))
                         else:
-                            result = execute_tool(call.name, call.arguments)
-                        result = maybe_offload_tool_result(call.name, result)
-                        result = mark_untrusted(call.name, result)
+                            result = execute_tool(call.name, ctx.arguments)
+                        result = hooks.run_after(ctx, result)
                         if call.name in VOLATILE_TOOLS and previous is not None and seen_at.get(key) == world.version:
                             volatile_runs[(key, world.version)] = volatile_runs.get((key, world.version), 1) + 1
                         seen_calls[key] = result

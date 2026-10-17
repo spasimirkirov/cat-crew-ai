@@ -118,8 +118,8 @@ def test_stop_closes_the_stream_and_ends_the_call_quietly(monkeypatch) -> None:
 def test_gpt_oss_tool_calls_leaked_as_text_are_run() -> None:
     tools = [{"type": "function", "function": {"name": n}} for n in ("run_smoke_test", "read_file")]
     leaked = '<|channel|>commentary to=functions.read_file <|constrain|>json<|message|>{"path": "a.php"}<|call|>'
-    calls = extract_tool_calls_from_content(leaked, tools, strict=True)
+    calls = extract_tool_calls_from_content(leaked, tools)
     assert [(c.name, c.arguments) for c in calls] == [("read_file", {"path": "a.php"})]
     garbled = "<|channel|>commentary to=functions.run_smoke_test<|constrain|>??]<|call|>"
-    assert [c.name for c in extract_tool_calls_from_content(garbled, tools, strict=True)] == ["run_smoke_test"]
-    assert extract_tool_calls_from_content("to=functions.rm_rf <|call|>", tools, strict=True) == []
+    assert [c.name for c in extract_tool_calls_from_content(garbled, tools)] == ["run_smoke_test"]
+    assert extract_tool_calls_from_content("to=functions.rm_rf <|call|>", tools) == []

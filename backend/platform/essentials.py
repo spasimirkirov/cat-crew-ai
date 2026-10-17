@@ -123,10 +123,6 @@ ESSENTIAL_SKILLS: frozenset[tuple[str, str]] = frozenset(
 )
 
 
-def is_essential_skill(bot_id: str, slug: str) -> bool:
-    return (str(bot_id or "").strip(), str(slug or "").strip().lower()) in ESSENTIAL_SKILLS
-
-
 def essential_agents_for_skill(slug: str) -> frozenset[str]:
     """Cat ids for which playbook ``slug`` is essential (empty: it is optional everywhere)."""
     key = str(slug or "").strip().lower()

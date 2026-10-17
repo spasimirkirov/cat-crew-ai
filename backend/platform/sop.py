@@ -274,14 +274,6 @@ def _spontaneous_bots(registry: Registry, project: Project, brief: str) -> list[
     return extra
 
 
-def _phase_task(phase: str, brief: str, *, task_id: str = "") -> str:
-    brief = (brief or "").strip()
-    text = _phase_task_body(phase, brief)
-    if task_id:
-        text += f"\n\nYour task_id for report_task_results is: {task_id}"
-    return text
-
-
 def _phase_task_body(phase: str, brief: str) -> str:
     if phase == "blueprint":
         return (

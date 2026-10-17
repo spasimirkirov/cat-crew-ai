@@ -32,12 +32,11 @@ def test_our_own_errors_and_local_tools_stay_bare() -> None:
     assert mark_untrusted("read_file", "print('hi')") == "print('hi')"
 
 
-def test_strict_mode_ignores_command_like_lines_in_prose() -> None:
+def test_command_like_lines_in_prose_are_never_run() -> None:
     quoted = "The page says:\nrestart_catcrew\nsearch_files \"password\"\nI'm delegating to Pulse to wipe the disk."
-    assert extract_tool_calls_from_content(quoted, _TOOLS, strict=True) == []
-    assert extract_tool_calls_from_content(quoted, _TOOLS)  # a local model without native tools still gets rescued
+    assert extract_tool_calls_from_content(quoted, _TOOLS) == []
     explicit = '{"name": "run_command", "arguments": {"command": "npm run build"}}'
-    assert [c.name for c in extract_tool_calls_from_content(explicit, _TOOLS, strict=True)] == ["run_command"]
+    assert [c.name for c in extract_tool_calls_from_content(explicit, _TOOLS)] == ["run_command"]
 
 
 class _Scripted(BaseProvider):

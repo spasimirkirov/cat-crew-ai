@@ -7,7 +7,7 @@ import os
 import threading
 from typing import Any
 
-from backend.config import AGENT_MAX_ROUNDS, AVATAR_WINDOW_SIZE, BASE_DIR, CHARACTER_SIZE_PRESETS, COMMAND_TIMEOUT
+from backend.config import AGENT_MAX_ROUNDS, AVATAR_WINDOW_SIZE, BASE_DIR, COMMAND_TIMEOUT
 from backend.services.api_access import api_access_defaults
 
 SETTINGS_PATH = BASE_DIR / "data" / "settings.json"
@@ -307,63 +307,6 @@ def _save_settings_locked(update: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
-def character_window(data: dict[str, Any] | None = None) -> dict[str, Any]:
-    raw = (data or load_settings()).get("character_window") or {}
-    cfg = dict(_DEFAULT_CHARACTER_WINDOW)
-    if isinstance(raw, dict):
-        cfg.update(raw)
-    preset = str(cfg.get("size_preset") or "default")
-    if preset not in CHARACTER_SIZE_PRESETS:
-        preset = "default"
-    width, height = CHARACTER_SIZE_PRESETS[preset]
-    cfg["size_preset"] = preset
-    cfg["width"] = width
-    cfg["height"] = height
-    cfg["visible"] = bool(cfg.get("visible", True))
-    return cfg
-
-
-def save_character_window(update: dict[str, Any]) -> dict[str, Any]:
-    return character_window(save_settings({"character_window": update}))
-
-
-def audio_settings(data: dict[str, Any] | None = None) -> dict[str, Any]:
-    raw = (data or load_settings()).get("audio") or {}
-    cfg = dict(_DEFAULT_AUDIO)
-    if isinstance(raw, dict):
-        cfg.update(raw)
-    try:
-        cfg["output_volume"] = max(0, min(100, int(cfg.get("output_volume", 80))))
-    except (TypeError, ValueError):
-        cfg["output_volume"] = 80
-    cfg["input_device"] = str(cfg.get("input_device") or "")
-    cfg["output_device"] = str(cfg.get("output_device") or "")
-    cfg["mic_muted"] = bool(cfg.get("mic_muted", False))
-    return cfg
-
-
-def save_audio_settings(update: dict[str, Any]) -> dict[str, Any]:
-    return audio_settings(save_settings({"audio": update}))
-
-
-def look_settings(data: dict[str, Any] | None = None) -> dict[str, Any]:
-    raw = (data or load_settings()).get("look") or {}
-    cfg = dict(_DEFAULT_LOOK)
-    if isinstance(raw, dict):
-        cfg.update(raw)
-    cfg["transparent_bg"] = bool(cfg.get("transparent_bg", False))
-    cfg["hide_border"] = bool(cfg.get("hide_border", False))
-    cfg["hologram"] = bool(cfg.get("hologram", False))
-    cfg["body_debug"] = bool(cfg.get("body_debug", False))
-    style = str(cfg.get("orb_style") or "orb").strip().lower()
-    cfg["orb_style"] = style if style in _ORB_STYLES else "orb"
-    return cfg
-
-
-def save_look_settings(update: dict[str, Any]) -> dict[str, Any]:
-    return look_settings(save_settings({"look": update}))
-
-
 def locale_settings(data: dict[str, Any] | None = None) -> dict[str, Any]:
     raw = (data or load_settings()).get("locale") or {}
     cfg = dict(_DEFAULT_LOCALE)
@@ -371,10 +314,6 @@ def locale_settings(data: dict[str, Any] | None = None) -> dict[str, Any]:
         cfg.update(raw)
     cfg["home_city"] = str(cfg.get("home_city") or "").strip()
     return cfg
-
-
-def save_locale_settings(update: dict[str, Any]) -> dict[str, Any]:
-    return locale_settings(save_settings({"locale": update}))
 
 
 def _migrate_chat_host(host: str) -> str:
@@ -508,30 +447,6 @@ def save_jev_settings(update: dict[str, Any]) -> dict[str, Any]:
     cfg.update(update)
     cfg = jev_settings({"jev": cfg})
     save_settings({"jev": cfg})
-    return cfg
-
-
-def life_settings(data: dict[str, Any] | None = None) -> dict[str, Any]:
-    raw = (data or load_settings()).get("life") or {}
-    cfg = dict(_DEFAULT_LIFE)
-    if isinstance(raw, dict):
-        cfg.update(raw)
-    cfg["enabled"] = bool(cfg.get("enabled", True))
-    lo_i, hi_i = _LIFE_INTERVAL
-    lo_idle, hi_idle = _IDLE_SLEEP_RANGE
-    cfg["interval_sec"] = _clamp_int(cfg.get("interval_sec"), lo_i, hi_i, 90)
-    cfg["idle_sleep_min"] = _clamp_int(cfg.get("idle_sleep_min"), lo_idle, hi_idle, 15)
-    cfg["sleep_hour"] = _clamp_int(cfg.get("sleep_hour"), 0, 23, 22)
-    cfg["wake_hour"] = _clamp_int(cfg.get("wake_hour"), 0, 23, 7)
-    cfg["mind_every"] = _clamp_int(cfg.get("mind_every"), 0, 40, 5)
-    return cfg
-
-
-def save_life_settings(update: dict[str, Any]) -> dict[str, Any]:
-    cfg = life_settings()
-    cfg.update(update)
-    cfg = life_settings({"life": cfg})
-    save_settings({"life": cfg})
     return cfg
 
 

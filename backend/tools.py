@@ -945,12 +945,6 @@ def _command_env() -> dict[str, str]:
     return env
 
 
-def _start_background(cmd: str, workdir: Path) -> str:
-    from backend.services.terminal import run_background
-
-    return run_background(cmd, workdir, env=_command_env())
-
-
 def run_smoke_test(command: str, cwd: str | None = None, run_seconds: int = 8) -> str:
     """Start a long-running process (a dev server, an app entry point) and
     watch it for a few seconds, then kill it and report whether it stayed
@@ -3531,14 +3525,7 @@ def build_system_prompt(
     lang = (
         "Languages: reply in English.\n"
         "Tone: feminine first-person (I). Use a few emojis in the written chat "
-        "when it fits — never a wall of them, never in code or URLs. "
-        "Do not put emoji characters or emoji names in the [speak] block; "
-        "speech is plain words only (TTS would read them aloud).\n"
-        "Voice: ordinary short chat is spoken in full (emojis are stripped before TTS). "
-        "After tools, you may start with:\n"
-        "[speak]One or two spoken sentences, no URLs, dumps, or emojis.[/speak]\n"
-        "then the full written answer (without repeating the speak tags in the "
-        "written part). The UI strips [speak] from the chat bubble automatically.\n"
+        "when it fits — never a wall of them, never in code or URLs.\n"
         "Never quit, never say you will stop trying, never say you will flag "
         "issues for developers — you ARE the agent; keep using tools until the "
         "user says stop. When they ask what changed or what you see, verify with "

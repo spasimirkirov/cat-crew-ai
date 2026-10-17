@@ -34,8 +34,6 @@ CHARS_PER_TOKEN = 4
 WARN_PERCENT = 60
 DANGER_PERCENT = 85
 
-#: Hosts whose calls count against a quota worth showing. Everything is recorded; this is only for docs/tests.
-CLOUD_KINDS = ("openrouter",)
 
 # OpenRouter prompt caching: a documented ASSUMPTION, not a vendor-quoted price. The Anthropic-family
 # caching scheme OpenRouter's cache_control breakpoints use typically discounts a cached prompt read
@@ -222,9 +220,6 @@ class UsageMeter:
             return None
         return dict(row)
 
-    def call_count(self) -> int:
-        with self._lock:
-            return len(self._calls)
 
     def cache_savings(self, host: str = "openrouter") -> dict[str, Any]:
         """Prompt-cache token savings, summed over the calls still in the window. Both

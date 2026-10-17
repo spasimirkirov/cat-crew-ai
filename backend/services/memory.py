@@ -194,9 +194,6 @@ class Mem0Memory:
                 memories.append(item["memory"])
         return memories
 
-    def search_memory(self, user_input: str, limit: int = 5) -> list[str]:
-        return self.get_relevant_memories(user_input, limit)
-
 
 def build_memory_context(memories: list[str]) -> str:
     lines = "\n".join(f"- {m}" for m in memories)

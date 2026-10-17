@@ -99,20 +99,6 @@ def run_git(args: list[str], cwd: Path | None = None) -> tuple[int, str]:
     return completed.returncode, stderr or stdout or "(no output)"
 
 
-def _branch_name(root: Path) -> str:
-    code, out = run_git(["symbolic-ref", "--short", "-q", "HEAD"], root)
-    if code == 0:
-        line = (out or "").splitlines()[0].strip() if out else ""
-        if line and not line.startswith("Error"):
-            return line
-    code, out = run_git(["rev-parse", "--abbrev-ref", "HEAD"], root)
-    if code == 0:
-        line = (out or "").splitlines()[0].strip() if out else ""
-        if line and line not in {"HEAD"} and not line.startswith("fatal"):
-            return line
-    return "(no commits yet)"
-
-
 def has_commits(cwd: Path | None = None) -> bool:
     root = git_root(cwd)
     if root is None:
@@ -290,12 +276,6 @@ def push(cwd: Path | None = None) -> str:
         return "Not a git repository."
     _code, out = run_git(["push"], root)
     return out
-
-
-def init_repo(cwd: Path | None = None) -> str:
-    folder = (cwd or current_workspace()).resolve()
-    code, out = run_git(["init"], folder)
-    return out if code != 0 else f"Initialized git repository in {folder}."
 
 
 def add_paths(paths: list[str], cwd: Path | None = None) -> str:

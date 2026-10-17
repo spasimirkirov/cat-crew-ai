@@ -136,22 +136,6 @@ def phase_for(name: str, arguments: dict[str, Any] | None = None) -> tuple[str, 
     return title, detail
 
 
-def format_work_duration(seconds: float) -> str:
-    """Compact elapsed label: 32s, 10m 32s, 1h 4m."""
-    total = max(0, int(round(float(seconds or 0))))
-    if total < 60:
-        return f"{total}s"
-    minutes, secs = divmod(total, 60)
-    if minutes < 60:
-        if secs:
-            return f"{minutes}m {secs}s"
-        return f"{minutes}m"
-    hours, minutes = divmod(minutes, 60)
-    if minutes:
-        return f"{hours}h {minutes}m"
-    return f"{hours}h"
-
-
 def next_reveal(shown: str, target: str) -> str:
     """Advance the live reply by a few characters so large model chunks type smoothly."""
     if not target:
@@ -242,6 +226,5 @@ def repair_utf8_text(text: str) -> str:
     except (UnicodeEncodeError, UnicodeDecodeError):
         return raw
     return repaired
-
 
 

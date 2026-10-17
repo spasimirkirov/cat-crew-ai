@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any, Callable
 
@@ -28,12 +27,6 @@ from .toolset import (
 
 _SUMMARY_CAP = 8_000
 _MAX_NEST = 1
-# A bot re-issuing the exact same tool call (same name, same arguments) more
-# than this many times in one turn is loop spam, not progress — e.g.
-# calling update_todo a dozen times with the same list. Past the cap the
-# call is short-circuited (no re-execution, no repeated log line) and the
-# model is told to move on instead.
-_MAX_REPEAT_CALLS = 2
 
 
 def delegate_round_budget(requested: int = 0, *, bot: Bot | None = None) -> int:
@@ -142,7 +135,7 @@ def run_bot(
     attempt.
 
     ``collect_tool_events``, when given a list, gets one short line
-    appended per tool call this bot makes (e.g. "Ekko executed write_file
+    appended per tool call this bot makes (e.g. "Pulse executed write_file
     on src/App.jsx") — the Cat Crew SOP (``platform/sop.py``) surfaces
     these in the shared chat feed so a bot's work is visible as it
     happens, not hidden inside an opaque delegation result.
@@ -413,48 +406,11 @@ def run_bot(
         emit_activity(bot.name, label)
         activity_board.set_activity(bot.id, label or "Working…")
 
-    from backend.harness.loop_guard import WorldClock
-
-    # sig -> (identical calls so far, clock value they ran at). The count only grows while
-    # nothing changed in between: re-running a build after editing a file is progress, not spam.
-    _call_counts: dict[str, tuple[int, int]] = {}
-    _throttled_sigs: set[str] = set()
-    _clock = WorldClock()
-
-    def _call_signature(name: str, arguments: dict[str, Any]) -> str:
-        try:
-            args_key = json.dumps(arguments or {}, sort_keys=True, default=str)
-        except TypeError:
-            args_key = str(arguments)
-        return f"{name}:{args_key}"
-
+    # Repeats are handled once, by the loop itself (``run_agent`` + ``harness/loop_guard``): an
+    # identical call with nothing changed since is answered from memory there and never reaches
+    # this executor. A second throttle here used to cut a volatile read (read_terminal on a dev
+    # server, allowed three times by the loop) off after two.
     def _exec_and_log(name: str, arguments: dict[str, Any]) -> str:
-        sig = _call_signature(name, arguments)
-        seen_count, seen_version = _call_counts.get(sig, (0, _clock.version))
-        if seen_version != _clock.version:
-            seen_count = 0
-            _throttled_sigs.discard(sig)
-        count = seen_count + 1
-        _call_counts[sig] = (count, _clock.version)
-        if count > _MAX_REPEAT_CALLS:
-            # Same tool, same arguments, already run _MAX_REPEAT_CALLS times
-            # this turn — a model stuck re-issuing e.g. update_todo a dozen
-            # times with the same list. Don't re-execute it (that's the
-            # actual log/side-effect spam) and don't log another identical
-            # tool_events line either; one throttle note per distinct call
-            # is enough for the shared feed to show what happened.
-            if collect_tool_events is not None and sig not in _throttled_sigs:
-                collect_tool_events.append(
-                    f"{bot.name} repeated {name} with identical arguments — "
-                    f"throttled after {_MAX_REPEAT_CALLS} calls this turn"
-                )
-            _throttled_sigs.add(sig)
-            return (
-                f"Skipped: {name} was already called with these exact arguments "
-                f"{_MAX_REPEAT_CALLS} times and nothing has changed since. Repeating it "
-                "will not help — change a file or the environment first, or take a "
-                "different step."
-            )
         # Live sidebar caption BEFORE the (possibly slow) tool runs: the row
         # shows "Editing src/App.jsx" while it happens, not after. Writes go
         # through activity_board, which pushes them onto the bus.
@@ -464,7 +420,6 @@ def run_bot(
             bot.id, f"{_live_title}: {_live_detail}"[:96] if _live_detail else _live_title
         )
         result = execute_tool(name, arguments)
-        _call_counts[sig] = (count, _clock.note_executed(name))
         if collect_tool_events is not None:
             _title, detail = phase_for(name, arguments)
             line = f"{bot.name} executed {name}"

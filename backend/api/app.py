@@ -21,11 +21,19 @@ def _startup_data() -> None:
     """Idempotent, additive start-up: schema, playbook catalog, the core roster."""
     from backend.db import ledger
     from backend.platform.catcrew import seed_catcrew
-    from backend.platform.registry import load_registry
     from backend.services.settings_store import purge_retired_settings
 
     purge_retired_settings()  # drop settings (and any secret stored under them) that no longer exist
     ledger.init_db()
+    try:  # runs a crashed or killed process left "running" would otherwise stay so forever
+        from backend.db.state.repositories import RunRepo
+        from backend.platform.registry import store_path
+
+        reaped = RunRepo.reap_orphans(store_path())
+        if reaped:
+            print(f"[app] marked {reaped} interrupted run(s) as failed", flush=True)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[app] run reaper skipped: {exc}", flush=True)
     # The core cats come from the code, on every start: a changed prompt or bio reaches the crew
     # without a reinstall (it used to seed only once, so later prompt fixes never arrived).
     seed_catcrew()  # upserts the 8 core cats (photos kept); never wipes anything else

@@ -280,6 +280,22 @@ class RunRepo:
             return [_run_from_row(r) for r in rows]
 
     @staticmethod
+    def reap_orphans(store_path: Path, *, error: str = "app exited") -> int:
+        """Mark every run left ``queued`` / ``running`` / ``paused`` by a previous process as
+        ``failed``. Only called at start-up, before this process starts runs of its own."""
+        from datetime import datetime, timezone
+
+        ended = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        with db.connect(store_path) as conn:
+            cur = conn.execute(
+                "UPDATE runs SET status = 'failed', ended_at = COALESCE(ended_at, ?), "
+                "error = CASE WHEN error = '' THEN ? ELSE error END "
+                "WHERE status IN ('queued', 'running', 'paused')",
+                (ended, error),
+            )
+            return int(cur.rowcount or 0)
+
+    @staticmethod
     def for_bot(store_path: Path, project_id: str, bot_id: str, *, limit: int = 50) -> list[AgentRun]:
         with db.connect(store_path) as conn:
             rows = conn.execute(

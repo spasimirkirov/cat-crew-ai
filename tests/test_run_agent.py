@@ -320,42 +320,6 @@ Thank you, Vanguard. I'll delegate the design work to Pixel.
     assert "React" in calls[1].arguments["task"]
 
 
-def test_extract_delegate_from_prose_without_json(monkeypatch) -> None:
-    # hermetic: do not depend on which bots happen to be in the local registry
-    monkeypatch.setattr("backend.providers.base._catalog_bot_tokens", lambda: None)
-    text = (
-        "Excellent work, CatCrewAI. The design is shaping up nicely. "
-        "Now, I'll delegate the development work to Ekko. "
-        "I'm delegating to Ekko to build the landing page using React, Vite, "
-        "Bootstrap 5, and Font Awesome, based on Heimerdinger's architecture "
-        "and CatCrewAI's design. Please focus on implementing the functionality."
-    )
-    tools = _schema("delegate_to_bot", "update_todo")
-    calls = extract_tool_calls_from_content(text, tools)
-    assert len(calls) == 1
-    assert calls[0].name == "delegate_to_bot"
-    assert calls[0].arguments["bot_id"] == "ekko"
-    assert "React" in calls[0].arguments["task"]
-
-    bold = (
-        "I've directly delegated the finalization and deployment of the "
-        "landing page to **Ekko**, with Jayce providing oversight."
-    )
-    bold_calls = extract_tool_calls_from_content(bold, tools)
-    assert len(bold_calls) == 1
-    assert bold_calls[0].arguments["bot_id"] == "ekko"
-
-    confirm = (
-        "Delegating to confirm his dossier, then bind him to the project. "
-        "I will now call list_bots."
-    )
-    confirm_calls = extract_tool_calls_from_content(confirm, tools)
-    assert all(
-        str(call.arguments.get("bot_id") or "").lower() != "confirm"
-        for call in confirm_calls
-    )
-
-
 def test_extract_tool_calls_wrapper_and_xml() -> None:
     wrapped = '{"tool_calls": [{"name": "echo", "arguments": {"x": 1}}]}'
     calls = extract_tool_calls_from_content(wrapped, _ECHO)
@@ -477,37 +441,6 @@ def test_extract_gemma_bare_tool_code_cli() -> None:
     assert calls2[0].arguments["path"] == "backend/widgets.py"
     assert calls2[0].arguments["old_string"] == "title='CatCrewAI'"
     assert "Best AI Assistant" in calls2[0].arguments["new_string"]
-
-
-def test_extract_search_files_from_apology_prose() -> None:
-    text = (
-        "I will now use search_files to locate the string.\n"
-        'search_files "CatCrewAI - The Best AI Assistant" -backend\n'
-    )
-    calls = extract_tool_calls_from_content(text, _schema("search_files", "replace_in_file"))
-    assert len(calls) >= 1
-    assert calls[0].name == "search_files"
-    assert "Best AI Assistant" in calls[0].arguments.get("query", "")
-    assert "backend" in str(calls[0].arguments.get("path", ""))
-
-
-def test_extract_bare_restart_aliases() -> None:
-    tools = _schema("restart_catcrew", "read_file")
-    for sample in (
-        "restart",
-        "restart_catcrew",
-        "tool_code\nrestart",
-        "Done.\nreboot\n",
-        "`restart_catcrew`",
-        "restart()",
-        "restart_catcrew()",
-    ):
-        calls = extract_tool_calls_from_content(sample, tools)
-        assert len(calls) == 1, sample
-        assert calls[0].name == "restart_catcrew"
-        assert calls[0].arguments == {}
-    assert extract_tool_calls_from_content("I will restart later.", tools) == []
-    assert extract_tool_calls_from_content("read_file is useful", tools) == []
 
 
 def test_extract_fenced_cli_run_command() -> None:

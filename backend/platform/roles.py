@@ -283,10 +283,6 @@ _ALIASES = {
 }
 
 
-def role_ids() -> tuple[str, ...]:
-    return tuple(ROLE_PRESETS)
-
-
 def role_preset(role: str) -> RolePreset:
     key = (role or "general").strip().lower().replace(" ", "-")
     if key in ("orchestrator", "chief"):  # "chief" = role name stored before the rename
@@ -295,25 +291,3 @@ def role_preset(role: str) -> RolePreset:
     return ROLE_PRESETS.get(key, ROLE_PRESETS["general"])
 
 
-def apply_role_fields(
-    role: str,
-    previous: str = "",
-    *,
-    title: str = "",
-    skills: str = "",
-    prompt: str = "",
-) -> tuple[str, str, str]:
-    """Fill title / skills / prompt from a role unless the user already customized them."""
-    nxt = role_preset(role)
-    prev = role_preset(previous) if previous else None
-    title_out = title
-    if not title.strip() or (prev is not None and title.strip() == prev.title):
-        title_out = nxt.title
-    prev_skills = ", ".join(prev.skills) if prev is not None else ""
-    skills_out = skills
-    if not skills.strip() or skills.strip() == prev_skills:
-        skills_out = ", ".join(nxt.skills)
-    prompt_out = prompt
-    if not prompt.strip() or (prev is not None and prompt.strip() == prev.prompt.strip()):
-        prompt_out = nxt.prompt.strip()
-    return title_out, skills_out, prompt_out

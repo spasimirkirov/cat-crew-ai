@@ -25,7 +25,6 @@ import sys
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 # Make the app package importable when invoked as a script from anywhere under the repo.
 _ROOT = Path(__file__).resolve().parents[1]
@@ -39,7 +38,7 @@ from backend.harness.deferred import clear_loaded_tools
 from backend.harness.runtime import set_abort, set_provider
 from backend.harness.turn_note import attach_turn_note
 from backend.platform.chief import turn_context
-from backend.services.settings_store import agent_settings, resolve_chat_brain, save_agent_settings
+from backend.services.settings_store import agent_settings, resolve_chat_brain
 from backend.tools import build_system_prompt, execute_tool, tools_schema_for
 from backend.services.trace import bind_session, write_markdown
 from backend.services.workspace import set_folders
@@ -129,23 +128,6 @@ def _build_provider(host: str, model: str):
     from backend.core.provider_factory import provider_from_brain
 
     return provider_from_brain(effective_host, effective_model)
-
-
-def _print_tool_step(name: str, arguments: dict, result: str) -> None:
-    args_txt = ""
-    try:
-        import json as _json
-
-        args_txt = _json.dumps(arguments, ensure_ascii=False)
-        if len(args_txt) > 240:
-            args_txt = args_txt[:240] + "..."
-    except Exception:
-        args_txt = str(arguments)
-    print(f"[{_host().upper()}] {name}({args_txt})", flush=True)
-    preview = result.replace("\n", " ")
-    if len(preview) > 220:
-        preview = preview[:220] + "..."
-    print(f"[{_host().upper()}] -> {preview}", flush=True)
 
 
 def _prompt_loop(history: list[dict], provider, tools, timeout: int, rounds: int):

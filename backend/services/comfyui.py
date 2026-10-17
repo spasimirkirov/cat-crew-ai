@@ -19,7 +19,6 @@ from urllib.parse import urlparse
 import requests
 
 from backend.config import BASE_DIR, COMFYUI_ROOT, COMFYUI_URL
-from backend.services.lm_runtime import HostSnapshot, LmModel
 from backend.services.settings_store import brains_settings
 
 GENERATED_DIR = BASE_DIR / "data" / "generated"
@@ -494,27 +493,6 @@ def rembg_node(origin: str = "") -> str:
         if "rembg" in low or "rmbg" in low or "removebackground" in low.replace(" ", ""):
             return name
     return ""
-
-
-def probe_comfyui() -> HostSnapshot:
-    snap = HostSnapshot(kind="comfyui")
-    origin = comfy_origin(refresh=True)
-    online = _ping(origin)
-    snap.online = online
-    names = []
-    if online:
-        try:
-            names = list_checkpoints(origin)
-        except Exception as exc:  # noqa: BLE001
-            snap.error = str(exc)
-            names = list_models_on_disk("checkpoints")
-    else:
-        names = list_models_on_disk("checkpoints")
-        snap.error = f"offline ({origin})"
-    snap.models = [
-        LmModel(name=name, capabilities=["image"], extra="checkpoint") for name in names
-    ]
-    return snap
 
 
 def sampler_for_checkpoint(name: str) -> dict[str, Any]:

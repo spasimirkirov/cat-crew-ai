@@ -370,38 +370,6 @@ def run_foreground(
     return f"exit {code} @ {cwd}\n{out}"
 
 
-def run_in_session(
-    session: TerminalSession,
-    command: str,
-    *,
-    env: dict[str, str],
-    timeout: int = 0,
-) -> int:
-    """Run a command inside an existing tab and reprint the prompt when it ends."""
-    hub = get_hub()
-    cwd = Path(session.cwd)
-    session.command = command
-    session.running = True
-    session.exit_code = None
-    try:
-        proc = _popen(command, cwd, env)
-    except OSError as exc:
-        hub.write(session.sid, f"Error running command: {exc}\n")
-        session.running = False
-        session.exit_code = 1
-        hub.close(session.sid, 1)
-        hub.write(session.sid, f"{cwd}> ")
-        return 1
-    _track(proc, foreground=True)
-    try:
-        code = _pump(session, proc, timeout)
-    finally:
-        _untrack(proc)
-        session.running = False
-    hub.write(session.sid, f"{cwd}> ")
-    return int(code)
-
-
 def run_background(command: str, cwd: Path, *, env: dict[str, str]) -> str:
     hub = get_hub()
     session = hub.create(_title_for(command), str(cwd), command, background=True)
@@ -463,6 +431,3 @@ def _list_text(hub: TerminalHub) -> str:
     return "\n".join(lines)
 
 
-def _shell_title(cwd: Path | str) -> str:
-    path = Path(cwd)
-    return path.name or str(path)

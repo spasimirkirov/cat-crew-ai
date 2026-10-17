@@ -39,15 +39,7 @@ OPENROUTER_PROMPT_CACHING = os.environ.get("CATCREW_OPENROUTER_PROMPT_CACHING", 
 # only re-point the OpenRouter path. Off by default; a missing key or a failed call never blocks a turn.
 JEV_BASE_URL = os.environ.get("CATCREW_JEV_URL", "https://openrouter.ai/api/alpha/decisions")
 JEV_MODEL = os.environ.get("CATCREW_JEV_MODEL", "typesafe/jev-latest")
-JEV_ENABLED = os.environ.get("CATCREW_JEV_ENABLED", "0") in ("1", "true", "True")
-JEV_CONFIDENCE_THRESHOLD = float(os.environ.get("CATCREW_JEV_CONFIDENCE", "0.92") or 0.92)
 
-# Workspace for agent tools (files, shell, VS Code).
-# Live roots come from the session Files explorer (may be empty).
-# Override with CATCREW_WORKSPACE only as a rare env fallback for scripts.
-WORKSPACE_DIR = Path(
-    os.environ.get("CATCREW_WORKSPACE", str(BASE_DIR))
-).expanduser().resolve()
 
 # Defaults only. Live values live in Settings → General (`data/settings.json`).
 COMMAND_TIMEOUT = int(os.environ.get("CATCREW_COMMAND_TIMEOUT", "60"))

@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 import uuid
-from pathlib import Path
 
 from ..config import TOOL_RESULT_LIMIT
 from backend.services.session_fs import ensure_session_work_dir
@@ -51,5 +50,3 @@ def maybe_offload_tool_result(
     )
 
 
-def offload_path_for_tests(path: Path) -> bool:
-    return path.is_file() and "tool_results" in path.parts

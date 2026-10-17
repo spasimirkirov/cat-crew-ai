@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import json
 import shutil
 import subprocess
 import sys
 import time
-from dataclasses import asdict, dataclass
-from typing import Any
+from dataclasses import dataclass
 
 _CREATE_NO_WINDOW = 0x08000000
 _TTL = 120.0
@@ -126,5 +124,3 @@ def format_docker(info: DockerInfo | None = None) -> str:
     return "\n".join(lines)
 
 
-def docker_info_dict() -> dict[str, Any]:
-    return asdict(probe_docker())

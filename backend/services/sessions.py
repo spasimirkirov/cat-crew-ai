@@ -40,11 +40,6 @@ def _session_path(session_id: str) -> Path:
     return SESSIONS_DIR / f"{session_id}.json"
 
 
-def _default_title(workspace: Path) -> str:
-    del workspace
-    return format_session_title(None, mode="developer")
-
-
 def format_session_title(
     created_at: str | None = None,
     *,
@@ -294,16 +289,6 @@ def set_active_session(session_id: str) -> dict[str, Any] | None:
     return session
 
 
-def ensure_active_session() -> dict[str, Any]:
-    session_id = active_session_id()
-    if session_id:
-        session = load_session(session_id)
-        if session is not None:
-            apply_session_workspace(session)
-            return session
-    return new_session()
-
-
 def bind_project_computer(session: dict[str, Any], project_id: str = "") -> None:
     """Give every project thread the project's shared computer (source of truth)."""
     pid = str(project_id or session.get("project_id") or "").strip()
@@ -451,8 +436,3 @@ def fork_session(source: dict[str, Any], title: str | None = None) -> dict[str, 
     return session
 
 
-def auto_title_from_message(text: str) -> str:
-    line = " ".join((text or "").strip().split())
-    if not line:
-        return ""
-    return line[:48] + ("…" if len(line) > 48 else "")

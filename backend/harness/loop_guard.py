@@ -1,10 +1,9 @@
 """State-aware repeat detection for the agent tool loop.
 
-Two guards used to stop a cat from re-issuing the same tool call: one in
-``BaseProvider.run_agent`` (skip an identical call for the rest of the turn) and one in
-``platform/runner`` (throttle after N identical calls). Both were blind to progress, so
-``npm run build`` -> fix a file -> ``npm run build`` was treated as a loop and the cat ended
-the turn with "I got stuck repeating the same failed tool".
+``BaseProvider.run_agent`` is the one place that stops a cat from re-issuing the same tool call
+(``platform/runner`` used to add a second throttle; it is gone). The old guards were blind to
+progress, so ``npm run build`` -> fix a file -> ``npm run build`` was treated as a loop and the
+cat ended the turn with "I got stuck repeating the same failed tool".
 
 A repeat is only a repeat when *nothing changed in between*. ``WorldClock`` counts the tool
 calls that can change the project or its environment; a remembered call is reusable only

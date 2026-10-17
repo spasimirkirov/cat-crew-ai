@@ -70,10 +70,6 @@ class EventHub:
             self._unsub()
             self._unsub = None
 
-    @property
-    def client_count(self) -> int:
-        with self._lock:
-            return len(self._clients)
 
     def register(self, client: Client) -> None:
         with self._lock:

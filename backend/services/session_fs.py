@@ -136,7 +136,3 @@ def remove_session_work_dir(
         _rmtree_safe(path, expected_parent_name=CATCREW_DIR, sid=sid)
 
 
-# Back-compat alias used by older call sites / docs.
-def backend_root(workspace: Path | None = None) -> Path:
-    del workspace
-    return scratch_root()

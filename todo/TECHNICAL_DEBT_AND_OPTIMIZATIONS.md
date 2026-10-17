@@ -8,12 +8,10 @@ Audit of the `cat-crew-ai` code base, first written in September 2026 against th
 
 | ID | Area | Finding | Sev | Effort |
 | --- | --- | --- | --- | --- |
-| A-01 | DB | A corrupt or half-written `registry.json` silently loads as an empty catalog, and the next save overwrites the recoverable file | P0 | S |
 | A-02 | Async | Auto-heal retries re-run the original task and never see the failure output | P0 | S |
 | U-01 | UX | A pending approval or question is not re-listed after a page reload or reconnect; the agent waits | P1 | S |
 | N-01 | Tests | 2 test modules cannot be collected and 17 tests fail (all of them already failing before the pivot) | P1 | M |
 | N-02 | Security | `data/settings.json` holds API keys in plain text; two tokens were exposed and must be rotated | P1 | S |
-| A-03 | DB | No WAL and a 10 s lock timeout on the ledger | P1 | S |
 | A-05 | Async | `report_task_results` is synchronous and blocks on a model call | P1 | S |
 | C-01 | Tokens | SOP hands every later specialist the full text of every earlier phase | P1 | S |
 | C-02 | Tokens | Volatile clock and probes sit mid-prompt and defeat prompt caching | P1 | S |
@@ -26,7 +24,7 @@ Audit of the `cat-crew-ai` code base, first written in September 2026 against th
 | N-07 | API | The runner's "Computer after this turn" note and role banners are stored inside message text and stripped only on the wire | P2 | S |
 | N-08 | API | No token streaming (`chat.stream`); replies arrive whole | P2 | M |
 | A-07 | DB | `runs` rows and schema DDL run on the event loop and on every connection | P2 | S |
-| A-08 | DB | Orphaned `running` rows are never reaped; no retry on `database is locked` | P2 | S |
+| A-08 | DB | No retry on `database is locked` (orphaned `running` rows are now reaped at start-up) | P2 | S |
 | C-04 | Tokens | Static tool list in the prompt duplicates the JSON schemas | P2 | M |
 | C-05 | Tokens | Compaction now runs at a fixed 8,000 tokens; it does not yet read each model's real window or offload large tool results | P2 | M |
 | C-06 | Tokens | Identity and AGENTS.md budgets | P2 | S |
@@ -35,6 +33,10 @@ Audit of the `cat-crew-ai` code base, first written in September 2026 against th
 | N-11 | Orchestrator | The Cat Crew intent router is keyword-based (English + Bulgarian); no confidence score and no way for the user to override a misroute | P2 | M |
 | M-01 | Models | The Anthropic host, `browser_look` and the Gemini list endpoint are tested against fake responses only, never a live API | P2 | S |
 | M-02 | Models | Pixel and Aegis prompts are seeded once, so existing installs keep the old wording (the browser tools carry their own guidance) | P2 | S |
+| H-01 | Harness | One turn at a time across all projects; OpenClaw-style per-session lanes need per-turn state first (see N-04) | P2 | L |
+| H-02 | Harness | No model failover: a rate-limited or out-of-credit model stops the run (`model_block`) instead of trying a configured fallback model | P2 | M |
+| H-03 | Harness | The agent loop (`run_agent`, about 380 lines) still lives on `BaseProvider`; move it to `harness/loop.py` so providers only speak HTTP | P2 | M |
+| H-04 | Harness | Specialist prompts still say "Chief" for the orchestrator (`platform/runner.py`); rename to Cat Crew with an eval run before and after | P2 | S |
 | N-12 | Hygiene | Legacy `chief` compatibility shims (session `bot_id`, orphaned `agent_*` rows, `chief` table, registry JSON key, `RunKind.CHIEF`, `ROLE_PACKS` role name) can be dropped after a one-off data migration | P2 | S |
 
 ## 1. Resolved by the pivot
@@ -59,7 +61,10 @@ These were the PyQt-era findings. They no longer apply because the code they des
 
 Threads today: the uvicorn event loop (async routes and the WebSocket hub), FastAPI's worker pool for synchronous routes, one turn thread for the running chat turn (`ChatService`, one turn at a time), one throwaway asyncio loop thread per delegated call, and `asyncio.to_thread` workers for each specialist turn. SQLite is opened per call and never shared across threads, which is correct. The problems are the write concurrency mode and the two JSON stores that sit next to it. File and line references below come from the tree before the pivot; paths have been updated, line numbers may drift.
 
-### A-01 (P0) `registry.json`: silent reset and non-atomic writes
+### A-01 (done 2026-10-17) `registry.json`: silent reset and non-atomic writes
+
+Done: load and save share one `RLock`; the save writes a temp file, `fsync`s it and `os.replace`s it, keeping the previous file as `registry.json.bak`; a file that does not parse is moved to `registry.json.corrupt-<time>` and the `.bak` is loaded (`tests/test_harness_lifecycle.py`). Still open: point (4) below, moving run state out of the catalog.
+
 
 `load_registry()` (platform/registry.py:41-55) catches `OSError`, `JSONDecodeError` and `ValueError`, then falls back to `_defaults()`. `platform/defaults.json` contains no bots and no projects, so a corrupt file yields an **empty catalog** with no message. The recoverable, half-readable file is left on disk until the next `save_registry()` (registry.py:58-68) writes the empty cache over it. That write is itself the cause of corruption: `Path.write_text` truncates the file and then writes 150 KB of indented JSON, so a crash, power loss or a concurrent reader between the two steps leaves a partial file. Nothing takes a lock; `_cache` is a module-global object mutated by the SOP worker thread while an API thread saves it (16 call sites of `save_registry`).
 
@@ -75,7 +80,10 @@ Verify: a test that truncates `registry.json` mid-write and asserts the app load
 
 Fix: `task=ctx.run.task` inside the executor (and pass the failure text as `extra_context`). Add a test whose provider records the messages it receives and asserts the verify output appears in the second call.
 
-### A-03 (P1) The ledger has no WAL and a 10 s lock timeout
+### A-03 (done 2026-10-17) The ledger has no WAL and a 10 s lock timeout
+
+Done: `journal_mode=WAL` once per process, `synchronous=NORMAL` and `busy_timeout=5000` on every connection (`db/ledger._connect`).
+
 
 `db/ledger.py:_connect()` uses `sqlite3.connect(timeout=10)` with the default rollback journal. In that mode a reader blocks a writer and a writer blocks readers. With the API answering REST reads on worker threads while a turn writes tasks, results and file diffs, a reader can be stalled by a write (and the reverse). The old UI-thread version of this problem is gone; the lock mode is not.
 
@@ -100,6 +108,9 @@ Fix: after `add_task_result` returns, emit a `task_reported` event and return im
 `RunSupervisor` calls `RunRepo.create/update` synchronously from coroutines (core/supervisor.py:97, 127-139); each call opens a connection, sets WAL, and `db/state/db.py:ensure_schema` re-reads `schema.sql` from disk and runs the whole script every time (db/state/db.py:32-36, 55). Blocking SQLite inside the loop is harmless at one run at a time but breaks the moment runs are concurrent (see backlog item on concurrent specialists). Fix: memoise schema creation per path, and wrap repo calls in `asyncio.to_thread` or a single writer thread. Also `run_delegated` creates and tears down a whole `CatCrewEngine` per call (delegation.py:142-160); keep one long-lived engine bound to the store path and make the path a constructor argument for tests.
 
 ### A-08 (P2) Unhandled locks and orphaned runs
+
+Partly done (2026-10-17): start-up marks `queued` / `running` / `paused` runs as `failed` with `error='app exited'` (`RunRepo.reap_orphans`, called from `api/app._startup_data`). The locked-database retry is still open.
+
 
 There is no retry on `sqlite3.OperationalError: database is locked`; most callers wrap DB access in a bare `except Exception` and return an empty list, which hides failures (the tasks endpoint would show an empty list instead of an error). No code reaps `runs` rows that were `running` when the process died: `catcrew_state.db` currently holds five such rows. Fix: a small `retry_locked()` wrapper with jittered backoff at the connection helpers, log-and-surface errors in the UI, and on startup mark any `running` or `pending` rows as `failed` with `error='app exited'` (additive `UPDATE`, no schema change).
 
@@ -138,6 +149,9 @@ Fix: delete the constant. Move the probes to one background refresh thread that 
 Fix: remove the prose tool list from the prompt (keep only behavioural rules), give the developer-mode chat a role pack like the others, and measure the schema size per role (`len(json.dumps(schema))`) to set a budget; target under about 4k tokens of tool schema for a specialist. Cache `function_to_schema` results per handler path and file mtime so schemas are not regenerated every turn (tool_registry.py:214, 268). Note that `tools_schema_for` calls `register_agent_tools()` (database reads and handler imports) at the start of each turn (tools.py:3048-3050); see A-03.
 
 ### C-05 (P2) Compaction has one fixed threshold
+
+Update (2026-10-17): session pruning (`harness/pruning.py`) now trims stale, long tool results in place before the summary call is needed (see ARCHITECTURE "The tool loop").
+
 
 Done: `services/compaction.py` (`ContextBudget`) works in tokens and runs before every model call. Over 8,000 tokens (`CATCREW_CONTEXT_TOKENS`) the older turns are summarised by the Memory-role model (Chat when unset) and the recent turns stay verbatim, so a costly model receives the summary instead of the whole history. Still open: the threshold is one number for every model. Model discovery already returns `context_length` for hosts that report it (LM Studio does), so the budget could be a share of the real window of the model that will receive the request. The estimate is characters / 4 (fine for a trigger, not exact; `tiktoken` where available would be better), and large tool results are truncated but not offloaded or summarised before user turns are.
 
@@ -195,6 +209,7 @@ The API contract has no `chat.stream`. The pre-pivot app never streamed tokens e
 
 ### N-09 (P2) Hygiene
 
+- **Done 2026-10-17.** `_to_delete/`, `console/` (old installers under the retired name), `services/timeutil.py`, `services/context_manager.py`, about 45 unreferenced functions and constants (each checked with a word-boundary grep over backend, tests, scripts and the front end), the unused voice-settings readers and savers, the `[speak]` TTS instructions in the developer prompt, unused imports, and the local-model text harvesters in `providers/base.py` (bare command lines and narrated "delegating to X" were run as tools: a prompt-injection path on every host except OpenRouter). The runner's second repeat throttle was removed; it cut volatile reads off after two calls while the loop allows three.
 - **Repository.** The git repository had no commits and a stale zero-byte `.git/index.lock` (17 September) that blocks `git add`. With no git process running, delete the lock, then commit. The folder is still named `car-crew-ai` on disk; rename it to `cat-crew-ai`. Stale `build/`, `dist/` and `console/` artifacts from the old app can be deleted.
 - **Dependencies.** `requirements.txt` is now the API's dependency set with no upper bounds and no lock file. `numpy` and `sentence-transformers` are not imported directly (mem0 may pull them in): verify and prune. `huggingface_hub` was dropped from the list (nothing imports it; `sentence-transformers` brings it in for the embedder cache). `playwright` is now declared in `requirements.txt`; only the Chromium download still happens on demand inside the first browser tool call (`tools._ensure_playwright()`, up to 180 s, retried at most every 10 minutes after a failure): pre-install it in the release build (N-03).
 - **Dead code.** The voice, wake-word, overlay and particle-body modules were removed, but `services/settings_store.py` still carries their settings sections (`character_window`, `audio`, `look`, `speak`, `life`) so old `settings.json` files load unchanged; drop them together with a settings migration. `backend/db/legacy.py` (old module-path mapping for stored tool handlers), `platform/catcrew.py:migrate_legacy_arcane`, `db/state/repositories.RegistryRepo` (built, unwired, see A-01) and the "Team Arcane" fixtures (`Ekko`, `Caitlyn`) should each be kept or deleted deliberately. `legacy/` holds the retired packager and the Mixamo animation assets; delete it once nobody needs it.

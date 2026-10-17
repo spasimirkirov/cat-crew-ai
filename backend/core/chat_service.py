@@ -775,7 +775,7 @@ class ChatService:
             if not turn.stopped and chain is not None:
                 follow = chain
             elif not turn.stopped and self._follow_ups:
-                follow = self._follow_ups.pop(0)
+                follow = _collect_follow_up(self._follow_ups)
         with self._rec_lock:
             turn.recorders.clear()
         with self._lock:
@@ -796,6 +796,33 @@ class ChatService:
                     {"turn_id": "", "error": f"Queued message failed: {exc}"},
                     project_id=follow[0],
                 )
+
+
+def _collect_follow_up(queue: list[tuple[str, str, str, Intent | None]]) -> tuple[str, str, str, Intent | None]:
+    """Pop the next queued message, folding in the ones queued right behind it for the same thread
+    ("collect").
+
+    Three quick messages typed into one chat while a turn runs used to become three turns, each
+    re-reading the whole thread. Like OpenClaw's collect queue mode they now run as one turn, in
+    the order they were typed. A message with its own routing (a hand-off, a problem report, a
+    ``/template`` or an ``@mention``) is never merged, and neither is anything queued for another
+    thread; both keep their place."""
+
+    def mergeable(item: tuple[str, str, str, Intent | None]) -> bool:
+        return item[3] is None and not item[2].lstrip().startswith(("/", "@"))
+
+    project_id, bot_id, text, intent = queue.pop(0)
+    if not mergeable((project_id, bot_id, text, intent)):
+        return project_id, bot_id, text, intent
+    parts = [text]
+    rest: list[tuple[str, str, str, Intent | None]] = []
+    for item in queue:
+        if item[0] == project_id and item[1] == bot_id and mergeable(item) and not rest:
+            parts.append(item[2])
+        else:
+            rest.append(item)
+    queue[:] = rest
+    return project_id, bot_id, "\n\n".join(parts), None
 
 
 def _asked_step(name: str, args_preview: str, result_preview: str) -> tuple[str, str] | None:

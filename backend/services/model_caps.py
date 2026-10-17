@@ -154,13 +154,6 @@ def classify(name: str, meta: dict[str, Any] | None = None) -> list[str]:
     return [cap for cap in CAP_ORDER if found[cap]]
 
 
-def merge_caps(*groups: Iterable[str]) -> list[str]:
-    """Union of capability lists in display order (used when two sources describe one model)."""
-    seen = {cap for group in groups for cap in group}
-    ordered = [cap for cap in ALL_CAPS if cap in seen]
-    return ordered
-
-
 # Roles that need a particular capability to do their job. Only a warning: a model
 # without it still works, it is just a poor fit.
 ROLE_NEEDS: dict[str, tuple[str, str]] = {

@@ -68,8 +68,6 @@ class ActivityRecorder:
     def elapsed(self) -> float:
         return max(0.0, time.monotonic() - self._started)
 
-    def has_steps(self) -> bool:
-        return bool(self.steps)
 
     def snapshot(self, elapsed_s: float | None = None) -> dict[str, Any]:
         """Frozen form stored on the message (``{}`` when nothing ran)."""

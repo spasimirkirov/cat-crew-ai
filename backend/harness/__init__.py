@@ -1,4 +1,4 @@
-"""Agent harness helpers (events, approvals, deferred tools, offload, subagents)."""
+"""Agent harness helpers (events, hooks, approvals, deferred tools, offload, pruning, subagents)."""
 
 from .ask_user import ask_user, reset_ask_user_hook, set_ask_user_hook
 from .approvals import gate_tool, needs_approval, set_approval_hook

@@ -6,7 +6,7 @@ import hashlib
 import re
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote_plus, urlparse
+from urllib.parse import urlparse
 
 import requests
 

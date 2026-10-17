@@ -62,8 +62,13 @@ def _connect() -> sqlite3.Connection:
     conn = sqlite3.connect(str(DB_PATH), timeout=10)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    # API reads run while a turn writes tasks and diffs: in WAL mode readers never block the writer
+    # (and the reverse). NORMAL is durable enough under WAL; busy_timeout waits out short locks.
+    conn.execute("PRAGMA busy_timeout = 5000")
+    conn.execute("PRAGMA synchronous = NORMAL")
     global _initialized
     if not _initialized:
+        conn.execute("PRAGMA journal_mode = WAL")  # persistent: once per process is enough
         # Lazy, once-per-process schema creation, so no caller (a tool
         # call, a fresh SOP pipeline run, a script) has to remember to call
         # init_db() first — CREATE TABLE IF NOT EXISTS is cheap and this

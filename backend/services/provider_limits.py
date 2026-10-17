@@ -9,7 +9,6 @@ is known: a conservative mid-size window). Every host is a cloud host now; nothi
 from __future__ import annotations
 
 import threading
-import time
 from typing import Any
 
 THRESHOLD_RATIO = 0.85
@@ -26,7 +25,6 @@ CLOUD_LIMITS: dict[str, tuple[int, int]] = {
 #: A host or model we know nothing about: a conservative small window (compacting early is cheap;
 #: overflowing a window fails the request).
 UNKNOWN_DEFAULT: tuple[int, int] = (16_384, 14_000)
-LOCAL_DEFAULT = UNKNOWN_DEFAULT  # kept for callers that still import the old name
 #: OpenRouter names its models ``<vendor>/<model>``: the vendor tells the window.
 _VENDOR_HOSTS = {"deepseek": "deepseek", "google": "gemini", "anthropic": "anthropic", "openai": "openai"}
 _MEMO_TTL_S = 60.0

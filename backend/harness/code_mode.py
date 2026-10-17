@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import re
 import uuid
-from pathlib import Path
 
 from backend.services.session_fs import ensure_session_work_dir
 

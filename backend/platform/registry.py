@@ -4,16 +4,21 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+import threading
+import time
 from pathlib import Path
 from typing import Any
 
-from ..config import BASE_DIR, CATCREW_HOME
+from ..config import BASE_DIR
 from .models import Bot, ChiefSpec, Project, Registry, new_id
 
 STORE_PATH = BASE_DIR / "data" / "platform" / "registry.json"
 DEFAULTS_PATH = Path(__file__).resolve().parent / "defaults.json"
 
 _cache: Registry | None = None
+# Guards load/save: the SOP worker thread and API threads both save the catalog.
+_lock = threading.RLock()
 
 
 def store_path() -> Path:
@@ -39,16 +44,50 @@ def _read_mapping(path: Path) -> dict[str, Any]:
     return data
 
 
+def _backup_path() -> Path:
+    return STORE_PATH.with_name(STORE_PATH.name + ".bak")
+
+
+def _quarantine(path: Path) -> Path | None:
+    """Move an unreadable catalog aside (never overwrite it): it may still be recoverable by hand."""
+    target = path.with_name(f"{path.name}.corrupt-{int(time.time())}")
+    try:
+        os.replace(path, target)
+    except OSError:
+        return None
+    print(f"[registry] {path.name} could not be read; kept as {target.name}", flush=True)
+    return target
+
+
 def load_registry(*, refresh: bool = False) -> Registry:
     global _cache
-    if _cache is not None and not refresh:
-        return _cache
-    if STORE_PATH.is_file():
-        try:
-            _cache = Registry.from_dict(_read_mapping(STORE_PATH))
+    with _lock:
+        if _cache is not None and not refresh:
             return _cache
-        except (OSError, json.JSONDecodeError, ValueError):
-            pass
+        if STORE_PATH.is_file():
+            try:
+                _cache = Registry.from_dict(_read_mapping(STORE_PATH))
+                return _cache
+            except (OSError, json.JSONDecodeError, ValueError, TypeError, KeyError) as exc:
+                # A half-written or corrupt catalog used to load as an empty one, and the next save
+                # wrote that empty catalog over the recoverable file. Keep it, then try the backup.
+                # (A file that could not be opened at all is not corrupt: leave it where it is.)
+                if not isinstance(exc, OSError):
+                    _quarantine(STORE_PATH)
+                backup = _backup_path()
+                if backup.is_file():
+                    try:
+                        _cache = Registry.from_dict(_read_mapping(backup))
+                        print(f"[registry] restored the catalog from {backup.name}", flush=True)
+                        save_registry(_cache)
+                        return _cache
+                    except (OSError, json.JSONDecodeError, ValueError, TypeError, KeyError):
+                        pass
+        return _seed_defaults()
+
+
+def _seed_defaults() -> Registry:
+    global _cache
     seeded = _defaults()
     _cache = seeded
     if seeded.bots or seeded.projects:
@@ -58,16 +97,25 @@ def load_registry(*, refresh: bool = False) -> Registry:
 
 def save_registry(registry: Registry | None = None) -> Registry:
     global _cache
-    current = registry if registry is not None else load_registry()
-    STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps(current.to_dict(), ensure_ascii=False, indent=2)
-    # Atomic replace: the sidebar now re-reads the catalog the moment a bot is
-    # staffed mid-pipeline, so a reader must never observe a half-written file.
-    tmp = STORE_PATH.with_name(STORE_PATH.name + ".tmp")
-    tmp.write_text(payload, encoding="utf-8")
-    os.replace(tmp, STORE_PATH)
-    _cache = current
-    return current
+    with _lock:
+        current = registry if registry is not None else load_registry()
+        STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps(current.to_dict(), ensure_ascii=False, indent=2)
+        # Atomic replace (write, fsync, rename): a reader never observes a half-written file, and a
+        # crash leaves either the old or the new catalog. The previous one is kept as ``.bak``.
+        tmp = STORE_PATH.with_name(STORE_PATH.name + ".tmp")
+        with open(tmp, "w", encoding="utf-8") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        if STORE_PATH.is_file():
+            try:
+                shutil.copyfile(STORE_PATH, _backup_path())
+            except OSError:
+                pass
+        os.replace(tmp, STORE_PATH)
+        _cache = current
+        return current
 
 
 def reset_registry_cache() -> None:
@@ -94,14 +142,6 @@ def load_config_file(path: str | Path, *, save: bool = True) -> Registry:
         global _cache
         _cache = registry
     return registry
-
-
-def extra_config_paths() -> list[Path]:
-    """Optional user overlay: C:\\CatCrewAI\\platform\\*.json."""
-    root = CATCREW_HOME / "platform"
-    if not root.is_dir():
-        return []
-    return sorted(root.glob("*.json")) + sorted(root.glob("*.yaml")) + sorted(root.glob("*.yml"))
 
 
 def get_project(project_id: str) -> Project | None:
@@ -158,25 +198,6 @@ def staff_bot_on_project(registry: Registry, project: Project, bot: Bot) -> str:
 
         emit_bot_staffed(project.id, bot.id)
     return " ".join(notes)
-
-
-def save_bot(bot: Bot) -> Registry:
-    registry = load_registry()
-    registry.bots[bot.id] = bot
-    return save_registry(registry)
-
-
-def delete_bot(bot_id: str) -> Registry:
-    registry = load_registry()
-    existing = registry.bots.get(bot_id)
-    if existing is not None and existing.is_system:
-        # System roster members (the CatCrewAI core 8) are not deletable from
-        # the catalog — they can still be removed from a given project.
-        return registry
-    registry.bots.pop(bot_id, None)
-    for project in registry.projects.values():
-        project.bot_ids = [bid for bid in project.bot_ids if bid != bot_id]
-    return save_registry(registry)
 
 
 def save_project(project: Project) -> Registry:
@@ -285,11 +306,6 @@ class PlatformBuilder:
         self.registry.projects[row.id] = row
         return self
 
-    def assign_bot(self, project_id: str, bot_id: str) -> PlatformBuilder:
-        project = self.registry.projects.get(project_id)
-        if project is not None and bot_id not in project.bot_ids:
-            project.bot_ids.append(bot_id)
-        return self
 
     def save(self) -> Registry:
         return save_registry(self.registry)
