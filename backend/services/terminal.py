@@ -12,6 +12,7 @@ import threading
 import time
 import uuid
 from collections import deque
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Callable
 
@@ -199,9 +200,39 @@ class TerminalHub:
 
 
 _hub: TerminalHub | None = None
-_abort = threading.Event()
 _fg_lock = threading.Lock()
-_fg_procs: list[subprocess.Popen] = []
+
+
+class CommandScope:
+    """The foreground commands of one turn and its Stop flag.
+
+    Turns of different projects run at the same time, so Stop must end only the commands of the
+    turn it was pressed for. A runner binds its own scope for its thread (``bind_command_scope``);
+    code outside any turn (the CLI, tests, the terminal API) shares the process-wide scope."""
+
+    def __init__(self) -> None:
+        self.event = threading.Event()
+        self.procs: list[subprocess.Popen] = []
+
+
+_GLOBAL_SCOPE = CommandScope()
+_scope: ContextVar[CommandScope | None] = ContextVar("catcrew_command_scope", default=None)
+
+
+def _current() -> CommandScope:
+    return _scope.get() or _GLOBAL_SCOPE
+
+
+def bind_command_scope(scope: CommandScope):
+    return _scope.set(scope)
+
+
+def reset_command_scope(token) -> None:
+    _scope.reset(token)
+
+
+def _aborted() -> bool:
+    return _current().event.is_set()
 
 
 def get_hub() -> TerminalHub:
@@ -216,35 +247,39 @@ def reset_hub() -> None:
     if _hub is not None:
         _hub.kill_all()
     _hub = TerminalHub()
-    _abort.clear()
+    _GLOBAL_SCOPE.event.clear()
     with _fg_lock:
-        _fg_procs.clear()
+        _GLOBAL_SCOPE.procs.clear()
 
 
 def reset_abort() -> None:
-    _abort.clear()
+    _current().event.clear()
 
 
-def abort_running_commands() -> None:
-    """Stop the current foreground command. Background tabs stay until the user kills them."""
-    _abort.set()
+def abort_running_commands(scope: CommandScope | None = None) -> None:
+    """Stop the foreground commands of ``scope`` (default: this thread's turn). Background tabs
+    stay until the user kills them."""
+    target = scope or _current()
+    target.event.set()
     with _fg_lock:
-        procs = list(_fg_procs)
+        procs = list(target.procs)
     for proc in procs:
         _kill_tree(proc)
 
 
-def _track(proc: subprocess.Popen, *, foreground: bool) -> None:
+def _track(proc: subprocess.Popen, *, foreground: bool) -> CommandScope | None:
     if not foreground:
-        return
+        return None
+    scope = _current()
     with _fg_lock:
-        _fg_procs.append(proc)
+        scope.procs.append(proc)
+    return scope
 
 
-def _untrack(proc: subprocess.Popen) -> None:
+def _untrack(proc: subprocess.Popen, scope: CommandScope | None = None) -> None:
     with _fg_lock:
         try:
-            _fg_procs.remove(proc)
+            (scope or _current()).procs.remove(proc)
         except ValueError:
             pass
 
@@ -300,7 +335,7 @@ def _pump(session: TerminalSession, proc: subprocess.Popen, timeout: float | Non
     threading.Thread(target=reader, daemon=True).start()
     timed_out = False
     while True:
-        if _abort.is_set() and not session.background:
+        if _aborted() and not session.background:
             _kill_tree(proc)
             get_hub().write(session.sid, "\n[stopped]\n")
             break
@@ -352,18 +387,18 @@ def run_foreground(
         hub.write(session.sid, f"Error running command: {exc}\n")
         hub.close(session.sid, 1)
         return f"Error running command: {exc}"
-    _track(proc, foreground=True)
+    scope = _track(proc, foreground=True)
     try:
-        if _abort.is_set():
+        if _aborted():
             _kill_tree(proc)
             hub.write(session.sid, "\n[stopped]\n")
             hub.close(session.sid, -1)
             return "Stopped: command aborted."
         code = _pump(session, proc, timeout)
     finally:
-        _untrack(proc)
+        _untrack(proc, scope)
     out = session.snapshot().strip() or "(no output)"
-    if _abort.is_set():
+    if _aborted():
         return f"Stopped: command aborted.\n{out}"
     if timeout and timeout > 0 and "[timed out" in out:
         return f"Command timed out after {timeout}s: {command}\n{out}"
@@ -387,7 +422,7 @@ def run_background(command: str, cwd: Path, *, env: dict[str, str]) -> str:
 
     threading.Thread(target=worker, daemon=True).start()
     time.sleep(1.2)
-    if _abort.is_set():
+    if _aborted():
         _kill_tree(proc)
         return "Stopped: command aborted."
     tail = session.tail(60)

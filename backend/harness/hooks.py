@@ -139,9 +139,9 @@ def _offload(ctx: ToolCallContext, result: str) -> str:
 
 
 def _untrusted(ctx: ToolCallContext, result: str) -> str:
-    from backend.providers import base
+    from backend.harness import untrusted
 
-    return base.mark_untrusted(ctx.name, result)
+    return untrusted.mark_untrusted(ctx.name, result)
 
 
 register_before_tool("approval", _approval, order=10)

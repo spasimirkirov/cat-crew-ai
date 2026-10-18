@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 import { api, ApiError } from "../lib/api";
-import type { Agent, Message, Project, ServerEvent, Skill } from "../lib/types";
+import type { Agent, Message, Project, ServerEvent, Skill, Turn } from "../lib/types";
 import { ROOM_ID } from "../lib/types";
 import { shellBackendStatus } from "../lib/window";
 import { runBoot } from "./boot";
@@ -58,7 +58,9 @@ async function loadBootstrap(set: SetState): Promise<void> {
     for (const a of boot.agents) agents[a.id] = a;
     const activity = { ...s.activity };
     for (const a of boot.activity) activity[a.bot_id] = a;
-    return { ready: true, agents, activity, projects: boot.projects, currentTurn: boot.current_turn, lastError: null };
+    const turns: Record<string, Turn> = {};
+    for (const t of boot.turns ?? (boot.current_turn ? [boot.current_turn] : [])) turns[t.project_id] = t;
+    return { ready: true, agents, activity, projects: boot.projects, currentTurn: boot.current_turn, turns, lastError: null };
   });
 }
 

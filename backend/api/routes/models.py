@@ -22,6 +22,7 @@ _ROLES = {
     "vision": "vision",
     "planning": "planning",
     "review": "review",
+    "fallback": "fallback",
     "images": "image",
 }
 
@@ -38,6 +39,7 @@ class RolesBody(BaseModel):
     vision: RoleBrain | None = None
     planning: RoleBrain | None = None
     review: RoleBrain | None = None
+    fallback: RoleBrain | None = None
     images: RoleBrain | None = None
 
 

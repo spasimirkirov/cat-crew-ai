@@ -125,8 +125,7 @@ def patch_project(project_id: str, body: ProjectPatch) -> dict:
 @router.delete("/projects/{project_id}", status_code=204)
 def delete_project_route(project_id: str, request: Request) -> Response:
     deps.need_project(project_id)
-    turn = deps.chat_service(request).current_turn()
-    if turn and turn["project_id"] == project_id:
+    if deps.chat_service(request).is_busy(project_id):
         raise HTTPException(409, "Stop the running turn before deleting this project.")
     delete_project(project_id)
     from backend.services import settings_store

@@ -31,7 +31,13 @@ from backend.services.clarify import clarify_task, should_clarify
 from backend.services.here import should_attach_forecast
 from backend.services.memory import Mem0Memory, build_memory_context
 from backend.services.settings_store import agent_settings
-from backend.services.terminal import abort_running_commands, reset_abort
+from backend.services.terminal import (
+    CommandScope,
+    abort_running_commands,
+    bind_command_scope,
+    reset_abort,
+    reset_command_scope,
+)
 from backend.services.todo import prompt_appendix
 from backend.services.trace import bind_session, log_event, write_markdown
 from backend.tools import (
@@ -149,6 +155,29 @@ class _Steerable:
         self._thread: threading.Thread | None = None
         # Tools the person answered "always allow" for, for the rest of this turn.
         self._always_allow: set[str] = set()
+        # This turn's own foreground commands: Stop ends these, not another project's.
+        self._commands = CommandScope()
+        #: The project's computer for this turn, bound on the turn's own thread (``_bind_turn``);
+        #: ``None`` keeps whatever the process has.
+        self.folders: list[str] | None = None
+
+    def _bind_turn(self) -> list[tuple[Callable[[Any], None], Any]]:
+        """Bind the per-turn state on this thread; returns what ``_unbind_turn`` resets. Turns of
+        different projects run side by side, so nothing here may be process-wide."""
+        from backend.services.workspace import bind_folders, reset_folders
+
+        tokens: list[tuple[Callable[[Any], None], Any]] = [(reset_command_scope, bind_command_scope(self._commands))]
+        if self.folders is not None:
+            tokens.append((reset_folders, bind_folders(list(self.folders))))
+        return tokens
+
+    @staticmethod
+    def _unbind_turn(tokens: list[tuple[Callable[[Any], None], Any]]) -> None:
+        for reset, token in reversed(tokens):
+            try:
+                reset(token)
+            except (ValueError, LookupError):
+                pass
 
     @property
     def aborted(self) -> bool:
@@ -255,7 +284,7 @@ class TurnRunner(_Steerable):
     # -- abort / provider ------------------------------------------------------------
     def request_abort(self) -> None:
         self._abort.set()
-        abort_running_commands()
+        abort_running_commands(self._commands)
         with self._lock:
             self.provider.close_stream()
             if self._pending_provider is not None:
@@ -388,9 +417,11 @@ class TurnRunner(_Steerable):
         )
 
         who = self.bot_id or ROOM_ID
+        turn_tokens = self._bind_turn()
         try:
             self._prepare_bot_turn()
         except Exception as exc:  # noqa: BLE001
+            self._unbind_turn(turn_tokens)
             self._result = ("error", str(exc))
             self._deliver()
             return
@@ -420,6 +451,7 @@ class TurnRunner(_Steerable):
                 maybe_stop_comfy()
             except Exception:  # noqa: BLE001
                 pass
+            self._unbind_turn(turn_tokens)
         self._deliver()
 
     def _deliver(self) -> None:
@@ -571,7 +603,7 @@ class RoomRunner(_Steerable):
 
     def request_abort(self) -> None:
         self._abort.set()
-        abort_running_commands()
+        abort_running_commands(self._commands)
         # The active specialist streams through this provider (delegation captures it), so closing
         # the stream ends its model call now instead of after the whole reply has been generated.
         with self._lock:
@@ -609,6 +641,7 @@ class RoomRunner(_Steerable):
 
         from backend.harness.approvals import reset_approval_hook, set_approval_hook
 
+        turn_tokens = self._bind_turn()
         prov_token = set_provider(self.provider)
         abort_token = set_rt_abort(self._abort.is_set)
         # The specialists of a work run go through the same approval gate as a 1:1 chat
@@ -678,6 +711,7 @@ class RoomRunner(_Steerable):
             reset_approval_hook(hook_token)
             reset_rt_abort(abort_token)
             reset_provider(prov_token)
+            self._unbind_turn(turn_tokens)
         self._deliver()
 
     def _deliver(self) -> None:

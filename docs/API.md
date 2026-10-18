@@ -119,7 +119,7 @@ interface Tool {                 // Executable (Letta-style Python function tool
 | Method | Path | Body | Returns |
 | --- | --- | --- | --- |
 | GET | `/api/health` | – | `{status:"ok", version, busy:boolean}` |
-| GET | `/api/bootstrap` | – | `{agents:Agent[], projects:Project[], activity:Activity[], current_turn:Turn\|null}` (one call at app start; `agents` are the specialist cats only; `activity` also includes the `crew` entry) |
+| GET | `/api/bootstrap` | – | `{agents:Agent[], projects:Project[], activity:Activity[], current_turn:Turn\|null, turns:Turn[]}` (one call at app start; `turns` lists every running turn, one per project lane, and `current_turn` is the most recently started of them; `agents` are the specialist cats only; `activity` also includes the `crew` entry) |
 | POST | `/api/shutdown` | – | `202` graceful exit (stops the ComfyUI child, releases the instance lock). Called by the desktop shell when the app really quits (tray "Quit CatCrewAI" or the sidebar Power Off button, i.e. the `quit_app` Tauri command) — closing the window with X only hides it to the system tray. |
 
 ### Projects (Home = launcher: list / create / open / choose a workspace. No tasks here.)
@@ -185,7 +185,8 @@ The brief is not shown as a user message. Writing in a cat's thread is a direct 
 | GET | `/api/projects/{pid}/threads/{bot_id}/messages?limit=200` | – | `Message[]` (oldest first) |
 | POST | `/api/projects/{pid}/threads/{bot_id}/messages` | `{text}` | `202 {turn_id, queued:false}`; if a turn is running the text is queued: `202 {turn_id:null, queued:true, position}` |
 | POST | `/api/projects/{pid}/threads/{bot_id}/report` | `{text}` | Report a problem (`bot_id` = the cat whose work is wrong, or `crew`). Same `202` shape as messages. Starts a bug turn in the Cat Crew room: the lead writes a fix plan (`create_fix_task`), the cats fix it, QA verifies. The turn's `mode` is `bug`; phases are `fixplan`, `fix`, `qa`, `fixreport` |
-| GET | `/api/turns/current` | – | `Turn \| null` where `Turn = {id, project_id, bot_id, started_at, phase, kind:"room"\|"direct", mode:"chat"\|"work"\|"mention"\|"direct"}` |
+| GET | `/api/turns` | – | `Turn[]`: every running turn, one per project lane, oldest first. Up to `CATCREW_PARALLEL_PROJECTS` projects (default 1) run at once; a project always runs one turn at a time and queues the rest. |
+| GET | `/api/turns/current` | – | `Turn \| null` (the most recently started running turn) where `Turn = {id, project_id, bot_id, started_at, phase, kind:"room"\|"direct", mode:"chat"\|"work"\|"mention"\|"direct"}` |
 | POST | `/api/turns/{turn_id}/abort` | – | `202` |
 | POST | `/api/projects/{pid}/retry` | – | `202` `{turn_id, queued}`: runs again the last message whose model was turned away (after `POST /api/models/replace`); `404` when there is nothing to retry |
 | POST | `/api/turns/{turn_id}/steer` | `{text}` | `202` (folded into the next phase / model round) |
@@ -219,7 +220,7 @@ The brief is not shown as a user message. Writing in a cat's thread is a direct 
 Hosts are cloud hosts, each with its own key: `openrouter` (every vendor's models through one key, addressed by vendor-prefixed slug such as `deepseek/deepseek-v4-pro`) and the vendors' own OpenAI-compatible APIs `openai`, `anthropic`, `gemini`, `deepseek`, `groq`, `mistral`, `xai` (the vendor's own model ids). There is no local model host: a `lmstudio` / `ollama` host saved by an older version reads as unset and the start-up check asks for a new pick. `images` runs on `comfyui`, `openrouter` (image models) or `off`. `vision` may also be `off` (no model): for a chat model that cannot see, `browser_look` then answers that Vision is turned off instead of following Chat.
 `configured` is a boolean: "a key is set". `key_source` is `"saved"`, `"environment"` or `"none"`. The key itself is never sent. A cloud host is `enabled` once it has a key.
 
-`PUT /api/models/roles` (`{chat?:{host,model}, coding?:…, vision?:…, planning?:…}`) → same shape as `GET /api/models` (`422` for an unknown host). An optional role (`coding`, `memory`, `vision`, `planning`) with an empty host and model is **unset** and follows Chat. Saving clears the cached health report.
+`PUT /api/models/roles` (`{chat?:{host,model}, coding?:…, vision?:…, planning?:…}`) → same shape as `GET /api/models` (`422` for an unknown host). An optional role (`coding`, `memory`, `vision`, `planning`) with an empty host and model is **unset** and follows Chat; `review` unset follows Coding; `fallback` unset means no failover (a turned-away model stops the run). A set `fallback` is the model a run switches to when its model answers 402 / 429, for that run and for 15 minutes of the same project's calls. Saving clears the cached health report.
 
 | Method | Path | Returns |
 | --- | --- | --- |
@@ -426,7 +427,7 @@ A client that stops reading is closed with `1013` ("try again later"): reconnect
 | `hello` | `{server_seq}` | Connected. Refetch. |
 | `bot.staffed` | `{bot_id, agent:Agent, entry:RosterEntry}` | **The orchestrator invoked a specialist into the project.** Pop the card into the sidebar strip instantly (slide-in + glow), no refresh. |
 | `bot.released` | `{bot_id}` | Card removed. |
-| `bot.activity` | `Activity` | (`project_id` is `null`: a cat's status is global, every client gets it.) Update the card's status pill (`idle`→`thinking`→`coding`/`testing`) and its one-line caption; the caption shows only while `state == "working"`. |
+| `bot.activity` | `Activity` + `project_id` (data) | (The envelope's `project_id` is `null`: a cat's status is global, every client gets it. `data.project_id` names the project whose turn wrote it, `""` when unknown.) Update the card's status pill (`idle`→`thinking`→`coding`/`testing`) and its one-line caption; the caption shows only while `state == "working"`. |
 | `phase.started` | `{phase, bot_id, label}` | The orchestrator started a phase for that cat. |
 | `cat.swapped` | `{cat_id, name, phase, label, status}` | The cat holding the engine changed (sent right after `phase.started`). `status` is the word for the phase (Thinking, Coding, Testing, Chatting). |
 | `task.changed` | `{task:Task}` | Insert/update the task in the project's Tasks tab (in place, by id). The payload is the row as it is when the event is delivered, so two rapid changes may arrive with the same (latest) status. |

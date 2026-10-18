@@ -59,6 +59,9 @@ def isolated(tmp_path, monkeypatch):
     bus.reset_bus()
     activity_board.reset()
     usage_meter.reset_meter()  # live counters and context gauges are process-wide
+    from backend.harness import model_block
+
+    model_block.reset()  # a block or failover remembered by one test must not steer the next
     balances.clear_cache()
     yield tmp_path
     activity_board.reset()

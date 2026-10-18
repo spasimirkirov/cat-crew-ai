@@ -9,20 +9,37 @@ source. The folder picker starts at ``C:\\`` when Files is empty.
 from __future__ import annotations
 
 import os
+from contextvars import ContextVar
 from pathlib import Path
 
+# The process-wide folders (what the API and the CLI see outside a turn) ...
 _folders: list[Path] = []
+# ... and a turn's own folders. Turns of different projects run at the same time, each on its own
+# thread with its project's computer bound here (``bind_folders``); ``set_folders`` inside a bound
+# turn changes only that turn's view.
+_turn_folders: ContextVar[list[Path] | None] = ContextVar("catcrew_turn_folders", default=None)
 _PICKER_EMPTY = Path(os.environ.get("SystemDrive", "C:") + os.sep)
 
 
 def current_folders() -> list[Path]:
-    return list(_folders)
+    bound = _turn_folders.get()
+    return list(bound if bound is not None else _folders)
+
+
+def bind_folders(paths: list[str | Path]):
+    """Give this thread (a turn) its own folders; returns the token for ``reset_folders``."""
+    return _turn_folders.set(_resolve_all(paths))
+
+
+def reset_folders(token) -> None:
+    _turn_folders.reset(token)
 
 
 def current_workspace() -> Path:
     """Primary workspace root, or the active session scratch when Files is empty."""
-    if _folders:
-        return _folders[0]
+    folders = current_folders()
+    if folders:
+        return folders[0]
     from backend.services.session_fs import ensure_session_work_dir
 
     return ensure_session_work_dir()
@@ -30,8 +47,9 @@ def current_workspace() -> Path:
 
 def folder_picker_start() -> Path:
     """Where the Add/Choose workspace dialog opens."""
-    if _folders:
-        return _folders[0]
+    folders = current_folders()
+    if folders:
+        return folders[0]
     return _PICKER_EMPTY if _PICKER_EMPTY.is_dir() else Path.home()
 
 
@@ -43,7 +61,7 @@ def terminal_folders() -> list[Path]:
 
 def set_workspace(path: str | Path) -> Path:
     resolved = _require_dir(path)
-    others = [folder for folder in _folders if folder != resolved]
+    others = [folder for folder in current_folders() if folder != resolved]
     set_folders([resolved, *others])
     return resolved
 
@@ -63,8 +81,7 @@ def remove_folder(path: str | Path) -> None:
     set_folders(folders)
 
 
-def set_folders(paths: list[str | Path]) -> list[Path]:
-    global _folders
+def _resolve_all(paths: list[str | Path]) -> list[Path]:
     resolved: list[Path] = []
     for raw in paths:
         try:
@@ -73,8 +90,17 @@ def set_folders(paths: list[str | Path]) -> list[Path]:
             continue
         if folder not in resolved:
             resolved.append(folder)
-    _folders = resolved
-    return list(_folders)
+    return resolved
+
+
+def set_folders(paths: list[str | Path]) -> list[Path]:
+    global _folders
+    resolved = _resolve_all(paths)
+    if _turn_folders.get() is not None:
+        _turn_folders.set(resolved)
+    else:
+        _folders = resolved
+    return list(resolved)
 
 
 def is_app_install(path: str | Path) -> bool:

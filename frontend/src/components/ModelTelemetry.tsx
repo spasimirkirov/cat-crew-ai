@@ -19,6 +19,7 @@ import {
   newerContext,
 } from "../lib/telemetry";
 import type { BalanceInfo, CacheSavings, JevTelemetry, MeterLevel, Telemetry } from "../lib/types";
+import { turnFor } from "../state/reducer";
 import { errorText, useStore } from "../state/store";
 import { Spinner } from "./Ui";
 
@@ -104,7 +105,7 @@ function JevCard({ jev }: { jev: JevTelemetry }) {
 export function ModelTelemetry({ projectId }: { projectId: string }) {
   const live = useStore((s) => s.rooms[projectId]?.context ?? null);
   // A turn starting or ending is when balances and speeds move: re-read then, on top of the timer.
-  const turnId = useStore((s) => (s.currentTurn?.project_id === projectId ? s.currentTurn.id : ""));
+  const turnId = useStore((s) => turnFor(s, projectId)?.id ?? "");
   const [data, setData] = useState<Telemetry | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);

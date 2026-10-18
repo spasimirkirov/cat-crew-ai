@@ -1,4 +1,4 @@
-import { faClipboardCheck, faCode, faComments, faDatabase, faEye, faImage, faListCheck } from "@fortawesome/free-solid-svg-icons";
+import { faClipboardCheck, faCode, faComments, faDatabase, faEye, faImage, faLifeRing, faListCheck } from "@fortawesome/free-solid-svg-icons";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -15,6 +15,8 @@ export interface RoleMeta {
   blurb: string;
   /** Left unset, the role runs on this other role's model ("Chat", or "Coding" for Review). */
   follows?: string;
+  /** Placeholder for the model field while the role is unset and follows nothing (Fallback). */
+  unset?: string;
   /** The capability this role works best with (a hint, never a block). */
   needs?: { cap: string; message: string };
   /** The model list for this role shows only models with this capability (Vision: vision models). */
@@ -108,6 +110,21 @@ export const ROLES: RoleMeta[] = [
         "The model Aegis (QA) checks the work with: runs the tests, opens every page, compares the result with the brief and answers PASS or FAIL. A FAIL sends the work back for a fix. Unset, it uses the Coding model.",
       pick:
         "A strong model with good tool calling, ideally from a different vendor than Coding. A model tends to overlook its own mistakes; a second opinion from another model family catches far more of them.",
+    },
+  },
+  {
+    key: "fallback",
+    label: "Fallback",
+    icon: faLifeRing,
+    blurb: "Takes over when a model is rate-limited or out of credit.",
+    unset: "No fallback: a blocked model stops the run",
+    needs: { cap: "tools", message: "The fallback stands in for Chat and Coding: it needs a model that supports tool calling." },
+    requires: "tools",
+    info: {
+      does:
+        "When a host turns a model away (a rate limit or no credit left), the run switches to this model and carries on instead of stopping. Later steps in the same project keep using it for 15 minutes. Unset, the run stops and offers to switch models.",
+      pick:
+        "A dependable model with good tool calling on a different host or vendor than your main ones, so one outage does not take out both. Paid, not a free-tier model: free tiers are what usually hit the limit.",
     },
   },
   {

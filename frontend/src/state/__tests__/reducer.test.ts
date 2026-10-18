@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Agent, Message, RosterEntry, ServerEvent, Task } from "../../lib/types";
-import { emptyRoom, initialCore, reduce, upsertStep, type CoreState } from "../reducer";
+import { emptyRoom, initialCore, reduce, runningElsewhere, turnFor, upsertStep, type CoreState } from "../reducer";
 
 const PID = "p1";
 let seq = 0;
@@ -141,6 +141,19 @@ describe("reducer: turns", () => {
     expect(s.currentTurn).toBeNull();
     expect(s.rooms[PID].phase).toBeNull();
     expect(s.rooms[PID].approvals).toEqual([]);
+  });
+
+  it("keeps one running turn per project (parallel lanes)", () => {
+    const a = { id: "ta", project_id: PID, bot_id: "crew", started_at: "2026-10-17T10:00:00+00:00", phase: "", kind: "room" as const };
+    const b = { id: "tb", project_id: "p2", bot_id: "pulse", started_at: "2026-10-17T10:01:00+00:00", phase: "", kind: "direct" as const };
+    let s = apply(opened(), ev("turn.started", a), ev("turn.started", b, "p2"));
+    expect(turnFor(s, PID)?.id).toBe("ta");
+    expect(turnFor(s, "p2")?.id).toBe("tb");
+    expect(runningElsewhere(s, PID)).toBe(true);
+    s = apply(s, ev("turn.finished", { turn_id: "tb", status: "ok" }, "p2"));
+    expect(turnFor(s, "p2")).toBeNull();
+    expect(s.currentTurn?.id).toBe("ta"); // the other project's turn is still the current one
+    expect(runningElsewhere(s, PID)).toBe(false);
   });
 
   it("does not clear a different, newer turn", () => {

@@ -201,8 +201,9 @@ def _publish(bot_id: str) -> None:
             _published[key] = snapshot
         try:
             from .bus import emit_bot_activity
+            from .runtime import current_project_id
 
-            emit_bot_activity(str(bot_id).strip(), snapshot[0], snapshot[1], snapshot[2])
+            emit_bot_activity(str(bot_id).strip(), snapshot[0], snapshot[1], snapshot[2], current_project_id())
         except Exception:  # noqa: BLE001
             pass
 

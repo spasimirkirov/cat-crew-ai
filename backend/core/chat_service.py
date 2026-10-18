@@ -8,9 +8,11 @@ forwards over ``/ws/events``.
 
 Rules the code below keeps:
 
-* **One turn at a time.** The workspace and the tool allow-list are
-  process-global (as they always were), so a second message while a turn runs
-  is queued and started right after the first finishes.
+* **One lane per project.** A project runs one turn at a time; a message sent
+  meanwhile is queued and started (collected with the ones behind it) when the
+  turn ends. Up to ``CATCREW_PARALLEL_PROJECTS`` projects (default 1) run at
+  once: every piece of per-turn state (session, folders, tool allow-list,
+  provider, Stop scope for commands) is bound on the turn's own thread.
 * **Lock discipline.** ``self._lock`` guards turn state only and is *never*
   held while publishing an event, touching ``activity_board`` (which
   publishes), or doing disk I/O. Bus subscribers run on the emitting thread
@@ -34,7 +36,7 @@ from typing import Any
 
 from backend.activity import visible_chat_reply
 from backend.agent_context import expand_slash_command
-from backend.config import MEMORY_ENABLED, MEMORY_TOP_K
+from backend.config import MEMORY_ENABLED, MEMORY_TOP_K, PARALLEL_PROJECTS
 from backend.core import provider_factory
 from backend.core.activity_recorder import ActivityRecorder
 from backend.core.agent_loop import RoomRunner, TurnListener, TurnRunner
@@ -145,6 +147,7 @@ class Turn:
     tools_used: list[str] = field(default_factory=list)
     recorders: dict[str, ActivityRecorder] = field(default_factory=dict)
     last_room_node: dict[str, Any] | None = None
+    active_bot: str = ""  # room turns: the cat on the current phase
 
     def public(self) -> dict[str, Any]:
         return {
@@ -167,9 +170,11 @@ class _Pending:
 
 
 class ChatService:
-    def __init__(self, *, use_memory: bool | None = None) -> None:
+    def __init__(self, *, use_memory: bool | None = None, parallel: int | None = None) -> None:
         self._lock = threading.RLock()
-        self._turn: Turn | None = None
+        #: project id -> its running turn (one lane per project)
+        self._turns: dict[str, Turn] = {}
+        self._parallel = max(1, int(parallel if parallel is not None else PARALLEL_PROJECTS))
         self._follow_ups: list[tuple[str, str, str, Intent | None]] = []  # (project_id, bot_id, text, intent)
         self._pending: dict[str, _Pending] = {}
         #: project -> (bot_id, text, intent) of the last turn a blocked model failed: what retry() runs.
@@ -182,25 +187,49 @@ class ChatService:
 
     # ------------------------------------------------------------------ state ----
     def current_turn(self) -> dict[str, Any] | None:
+        """The most recently started running turn (one-lane clients), or ``None``."""
         with self._lock:
-            return self._turn.public() if self._turn else None
+            turns = sorted(self._turns.values(), key=lambda t: t.started_at)
+            return turns[-1].public() if turns else None
 
-    def is_busy(self) -> bool:
+    def current_turns(self) -> list[dict[str, Any]]:
         with self._lock:
-            return self._turn is not None
+            return [t.public() for t in sorted(self._turns.values(), key=lambda t: t.started_at)]
+
+    def turn_for_project(self, project_id: str) -> dict[str, Any] | None:
+        with self._lock:
+            turn = self._turns.get(str(project_id or ""))
+            return turn.public() if turn else None
+
+    def is_busy(self, project_id: str | None = None) -> bool:
+        with self._lock:
+            if project_id is None:
+                return bool(self._turns)
+            return str(project_id) in self._turns
+
+    def _find(self, turn_id: str) -> Turn | None:
+        for turn in self._turns.values():
+            if turn.id == turn_id:
+                return turn
+        return None
+
+    def _can_start(self, project_id: str) -> bool:
+        """Lock held. A project's lane is free and the parallel cap has room."""
+        return project_id not in self._turns and len(self._turns) < self._parallel
 
     def queue_length(self) -> int:
         with self._lock:
             return len(self._follow_ups)
 
     def close(self) -> None:
-        """Stop the running turn (server shutdown)."""
+        """Stop the running turns (server shutdown)."""
         with self._lock:
-            turn = self._turn
+            turns = list(self._turns.values())
             self._follow_ups.clear()
-        if turn is not None and turn.runner is not None:
-            turn.stopped = True
-            turn.runner.request_abort()
+        for turn in turns:
+            if turn.runner is not None:
+                turn.stopped = True
+                turn.runner.request_abort()
         self._unsubscribe()
 
     # -------------------------------------------------------------- read models ----
@@ -267,7 +296,7 @@ class ChatService:
         if not body:
             raise ChatError("Message is empty.", 422)
         with self._lock:
-            if self._turn is not None:
+            if not self._can_start(project.id):
                 self._follow_ups.append((project.id, bid, body, intent))
                 return {"turn_id": None, "queued": True, "position": len(self._follow_ups)}
             # Claim the slot before releasing the lock so two concurrent POSTs
@@ -282,7 +311,7 @@ class ChatService:
                 text=body,
                 intent=intent,
             )
-            self._turn = claim
+            self._turns[project.id] = claim
         try:
             from backend.harness import model_block
 
@@ -290,8 +319,8 @@ class ChatService:
             self._start(claim, body, intent)
         except Exception:
             with self._lock:
-                if self._turn is claim:
-                    self._turn = None
+                if self._turns.get(project.id) is claim:
+                    del self._turns[project.id]
             raise
         return {"turn_id": claim.id, "queued": False}
 
@@ -328,10 +357,11 @@ class ChatService:
 
     def abort(self, turn_id: str) -> bool:
         with self._lock:
-            turn = self._turn
-            if turn is None or turn.id != turn_id:
+            turn = self._find(turn_id)
+            if turn is None:
                 return False
-            self._follow_ups.clear()
+            # Stop drops what was queued for this project; other projects keep their queue.
+            self._follow_ups = [item for item in self._follow_ups if item[0] != turn.project_id]
             turn.stopped = True
             runner = turn.runner
         if runner is not None:
@@ -343,8 +373,8 @@ class ChatService:
         if not body:
             raise ChatError("Steer text is empty.", 422)
         with self._lock:
-            turn = self._turn
-            if turn is None or turn.id != turn_id or turn.runner is None:
+            turn = self._find(turn_id)
+            if turn is None or turn.runner is None:
                 return False
             runner = turn.runner
         # Queued now; it enters the transcript (chat.message) when the runner
@@ -378,9 +408,9 @@ class ChatService:
 
         The project's roster, folders and the specialists' own 1:1 threads are
         untouched (same contract as the desktop "Reset Project")."""
-        if self.is_busy():
-            raise ChatError("Stop the current turn before resetting.", 409)
         project = self._project(project_id)
+        if self.is_busy(project.id):
+            raise ChatError("Stop the current turn before resetting.", 409)
         registry = load_registry()
         project = registry.projects.get(project.id) or project
         project.state.clear()
@@ -482,7 +512,8 @@ class ChatService:
         turn.session = session
         # Point the process at this turn's session: tools resolve paths against
         # its folders, and per-chat scratch (todo board, logs) keys off the
-        # active session. Safe: only one turn ever runs, and the slot is ours.
+        # active session. The runner also binds the project's folders on its own thread, so a
+        # turn of another project that starts meanwhile never moves this one's workspace.
         use_active_session(session)
         roles: tuple[str, ...] | None = None
         if turn.kind == "room":
@@ -532,6 +563,7 @@ class ChatService:
                 bug=(turn.mode == "bug"),
                 reporter=(intent.reporter if intent is not None else ""),
             )
+            runner.folders = list(session.get("folders") or [])
             turn.runner = runner
             self._announce_started(turn, "Thinking", "")
             activity_board.set_working(ROOM, "thinking", "Thinking…")
@@ -554,6 +586,7 @@ class ChatService:
             project_id=project_id,
             bot_id=bot_id,
         )
+        runner.folders = list(session.get("folders") or [])
         turn.runner = runner
         self._announce_started(turn, "Thinking", "")
         activity_board.set_working(bot_id, "thinking", "Thinking…")
@@ -599,21 +632,28 @@ class ChatService:
         so an open 1:1 chat shows what the cat is doing *right now*."""
         if event.type != bus.BOT_ACTIVITY:
             return
-        turn = self._turn  # racy read is fine: worst case one stale step is skipped
-        if turn is None or turn.kind != "room":
-            return
         data = event.data
         text = str(data.get("text") or "").strip()
         bot_id = str(data.get("bot_id") or "")
         if data.get("state") != "working" or not text or not bot_id or bot_id == ROOM:
             return
-        label = phase_label(turn.phase) or "Working"
-        self._record_step(turn, bot_id, text)
-        self._record_step(turn, ROOM, label, f"{self._speaker(bot_id)} — {text}")
+        with self._lock:  # never held while recording (that publishes)
+            rooms = [t for t in self._turns.values() if t.kind == "room"]
+        source = str(data.get("project_id") or "")
+        if source:
+            rooms = [t for t in rooms if t.project_id == source]
+        elif len(rooms) > 1:
+            # Two work runs at once: the cat's status belongs to the run whose phase it is on.
+            rooms = [t for t in rooms if t.active_bot == bot_id]
+        for turn in rooms:
+            label = phase_label(turn.phase) or "Working"
+            self._record_step(turn, bot_id, text)
+            self._record_step(turn, ROOM, label, f"{self._speaker(bot_id)} — {text}")
 
     # -- room callbacks -----------------------------------------------------------------
     def _room_phase_started(self, turn: Turn, phase: str, bot_id: str) -> None:
         turn.phase = phase or ""
+        turn.active_bot = bot_id or ""
         label = phase_label(phase) or "Working"
         word = status_word_for_phase(phase)
         bus.emit_phase_started(turn.project_id, phase, bot_id, label)
@@ -769,13 +809,23 @@ class ChatService:
         ``chain`` (a hand-off) runs before anything the user queued meanwhile."""
         bid = turn.bot_id or ROOM
         with self._lock:
-            if self._turn is turn:
-                self._turn = None
-            follow = None
+            if self._turns.get(turn.project_id) is turn:
+                del self._turns[turn.project_id]
+            follows: list[tuple] = []
             if not turn.stopped and chain is not None:
-                follow = chain
-            elif not turn.stopped and self._follow_ups:
-                follow = _collect_follow_up(self._follow_ups)
+                follows.append(chain)  # a hand-off runs before anything queued meanwhile
+            # Start every queued message whose lane is free now, oldest first, up to the cap.
+            free = self._parallel - len(self._turns) - len(follows)
+            taken = {f[0] for f in follows}
+            while free > 0:
+                nxt = _collect_follow_up(
+                    self._follow_ups, lambda item: item[0] not in self._turns and item[0] not in taken
+                )
+                if nxt is None:
+                    break
+                follows.append(nxt)
+                taken.add(nxt[0])
+                free -= 1
         with self._rec_lock:
             turn.recorders.clear()
         with self._lock:
@@ -787,7 +837,7 @@ class ChatService:
             bus.publish(
                 bus.TURN_FINISHED, {"turn_id": turn.id, "status": status}, project_id=turn.project_id
             )
-        if follow is not None:
+        for follow in follows:
             try:
                 self.submit(*follow)
             except Exception as exc:  # noqa: BLE001 - a bad queued message must not wedge the queue
@@ -798,7 +848,10 @@ class ChatService:
                 )
 
 
-def _collect_follow_up(queue: list[tuple[str, str, str, Intent | None]]) -> tuple[str, str, str, Intent | None]:
+def _collect_follow_up(
+    queue: list[tuple[str, str, str, Intent | None]],
+    eligible: Any = None,
+) -> tuple[str, str, str, Intent | None] | None:
     """Pop the next queued message, folding in the ones queued right behind it for the same thread
     ("collect").
 
@@ -806,20 +859,28 @@ def _collect_follow_up(queue: list[tuple[str, str, str, Intent | None]]) -> tupl
     re-reading the whole thread. Like OpenClaw's collect queue mode they now run as one turn, in
     the order they were typed. A message with its own routing (a hand-off, a problem report, a
     ``/template`` or an ``@mention``) is never merged, and neither is anything queued for another
-    thread; both keep their place."""
+    thread; both keep their place. ``eligible`` picks the first message that may start now (its
+    project's lane is free); ``None`` when there is none."""
 
     def mergeable(item: tuple[str, str, str, Intent | None]) -> bool:
         return item[3] is None and not item[2].lstrip().startswith(("/", "@"))
 
-    project_id, bot_id, text, intent = queue.pop(0)
+    at = next((i for i, item in enumerate(queue) if eligible is None or eligible(item)), None)
+    if at is None:
+        return None
+    project_id, bot_id, text, intent = queue.pop(at)
     if not mergeable((project_id, bot_id, text, intent)):
         return project_id, bot_id, text, intent
     parts = [text]
-    rest: list[tuple[str, str, str, Intent | None]] = []
-    for item in queue:
-        if item[0] == project_id and item[1] == bot_id and mergeable(item) and not rest:
+    rest: list[tuple[str, str, str, Intent | None]] = list(queue[:at])
+    blocked = False  # a message for another thread of the same project keeps everything behind it
+    for item in queue[at:]:
+        if item[0] != project_id:
+            rest.append(item)
+        elif not blocked and item[1] == bot_id and mergeable(item):
             parts.append(item[2])
         else:
+            blocked = True
             rest.append(item)
     queue[:] = rest
     return project_id, bot_id, "\n\n".join(parts), None

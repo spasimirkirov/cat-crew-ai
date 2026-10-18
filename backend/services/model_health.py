@@ -35,6 +35,7 @@ CHECKED_ROLES: tuple[tuple[str, str, str], ...] = (
     ("vision", "vision", "Vision"),
     ("planning", "planning", "Planning"),
     ("review", "review", "Review"),
+    ("fallback", "fallback", "Fallback"),
 )
 
 REPORT_TTL_S = 60.0

@@ -165,7 +165,7 @@ def test_run_agent_says_continue_when_rounds_run_out() -> None:
 
 
 def test_hit_round_cap_recognises_a_capped_run() -> None:
-    from backend.providers.base import hit_round_cap
+    from backend.harness.loop import hit_round_cap
 
     busy = _Scripted(
         "busy",

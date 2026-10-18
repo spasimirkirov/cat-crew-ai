@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { humanAgo } from "../../lib/time";
 import type { Agent, Project } from "../../lib/types";
+import { runningElsewhere, turnFor } from "../../state/reducer";
 import { useStore } from "../../state/store";
 import { Avatar } from "../Avatar";
 import { phaseLabel, phaseTone } from "./projectMeta";
@@ -28,11 +29,12 @@ const TONE = {
 export function ProjectCard({ project, now, onOpen, onRename, onDelete }: Props) {
   const agents = useStore((s) => s.agents);
   const activity = useStore((s) => s.activity);
-  const runningElsewhere = useStore((s) => (s.currentTurn ? s.currentTurn.project_id !== project.id : false));
+  const busyHere = useStore((s) => Boolean(turnFor(s, project.id)));
+  const busyElsewhere = useStore((s) => runningElsewhere(s, project.id));
 
   const crew = useMemo(() => project.bot_ids.map((id) => agents[id]).filter((a): a is Agent => Boolean(a)), [project.bot_ids, agents]);
-  // A cat's status is global, so while a turn runs in another project its cats are not "ours".
-  const working = runningElsewhere ? 0 : crew.filter((a) => activity[a.id]?.state === "working").length;
+  // A cat's status is global, so while only another project runs a turn its cats are not "ours".
+  const working = busyElsewhere && !busyHere ? 0 : crew.filter((a) => activity[a.id]?.state === "working").length;
 
   const folder = project.folders[0] ?? "";
   const created = humanAgo(project.created_at, now);

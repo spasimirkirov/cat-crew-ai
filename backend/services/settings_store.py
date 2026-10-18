@@ -52,6 +52,10 @@ _DEFAULT_BRAINS: dict[str, Any] = {
     # Review: the model QA (Aegis) checks the build with. Unset, it follows Coding.
     "review_host": "",
     "review_model": "",
+    # Fallback: the model a run switches to when its own model is turned away (rate limit, no
+    # credit). Unset, there is no failover and the run stops with the "switch model" notice.
+    "fallback_host": "",
+    "fallback_model": "",
     "image_host": "comfyui",
     "image_model": "",
     "searxng_url": "",
@@ -104,7 +108,7 @@ _IMAGE_HOSTS = ("comfyui", "openrouter", "off")
 #: Roles the user can switch off outright ("off" host, no model): Images, and Vision for a chat
 #: model that cannot see -- browser_look then says so instead of sending a screenshot to it.
 _OFF_ROLES = {"image", "vision"}
-_MODEL_ROLES = ("companion", "coding", "memory", "vision", "planning", "review", "image")
+_MODEL_ROLES = ("companion", "coding", "memory", "vision", "planning", "review", "fallback", "image")
 
 _DEFAULT_OPENROUTER: dict[str, Any] = {
     # "" = OpenRouter's own default (price-weighted load balancing across providers, with
@@ -496,6 +500,8 @@ def normalize_model_role(role: str | None) -> str:
         return "planning"
     if text in {"reviewer", "verify", "verifier"}:
         return "review"
+    if text in {"backup", "failover", "fallbacks"}:
+        return "fallback"
     if text in {"img", "comfy", "comfyui"}:
         return "image"
     return text if text in _MODEL_ROLES else "companion"
@@ -529,7 +535,7 @@ def save_role_brain(role: str, host: str, model: str) -> dict[str, Any]:
         return save_brains_settings({"image_host": image_host, "image_model": "" if image_host == "off" else model})
     if role == "vision" and raw_host == "off":
         return save_brains_settings({"vision_host": "off", "vision_model": ""})
-    if role in _INHERIT_ROLES:
+    if role in _INHERIT_ROLES or role == "fallback":
         if host not in _chat_hosts() or not model:
             host, model = "", ""
         return save_brains_settings({f"{role}_host": host, f"{role}_model": model})
@@ -567,7 +573,7 @@ def replace_model_everywhere(old_host: str, old_model: str, new_host: str, new_m
     old_host, old_model = str(old_host or "").strip().lower(), str(old_model or "").strip()
     new_host, new_model = str(new_host or "").strip().lower(), str(new_model or "").strip()
     changed: list[str] = []
-    for role in ("companion", "coding", "memory", "vision", "planning", "review"):
+    for role in ("companion", "coding", "memory", "vision", "planning", "review", "fallback"):
         host, model = saved_role_brain(role)
         if host == old_host and model == old_model:
             save_role_brain(role, new_host, new_model)

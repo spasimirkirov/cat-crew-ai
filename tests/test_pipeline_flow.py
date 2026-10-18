@@ -162,7 +162,7 @@ class _Reader(BaseProvider):
 
 
 def test_a_cat_that_only_reads_is_stopped_by_the_stall_guard() -> None:
-    from backend.providers.base import hit_stall
+    from backend.harness.loop import hit_stall
 
     out = _Reader().run_agent([{"role": "user", "content": "build"}], [{"type": "function", "function": {"name": "list_dir"}}], lambda n, a: "dir x", max_rounds=100, stall_rounds=6)
     assert hit_stall(out)

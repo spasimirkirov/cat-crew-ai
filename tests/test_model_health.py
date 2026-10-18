@@ -221,7 +221,7 @@ def test_image_query_param_asks_for_the_image_variant(client, world, monkeypatch
 
 def test_new_roles_and_host_in_models_state(client) -> None:
     state = client.get("/api/models").json()
-    assert set(state["roles"]) == {"chat", "coding", "memory", "vision", "planning", "review", "images"}
+    assert set(state["roles"]) == {"chat", "coding", "memory", "vision", "planning", "review", "fallback", "images"}
     assert [h["id"] for h in state["hosts"]] == ["openrouter", "openai", "anthropic", "gemini", "deepseek", "groq", "mistral", "xai"]
 
 

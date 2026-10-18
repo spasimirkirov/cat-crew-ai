@@ -32,6 +32,7 @@ WIRE_ROLES: dict[str, str] = {
     "vision": "vision",
     "planning": "planning",
     "review": "review",
+    "fallback": "fallback",
     "images": "image",
 }
 INHERIT = "inherit"
@@ -96,6 +97,9 @@ def get_effective_model(
     saved_host, saved_model = settings_store.saved_role_brain(role, data)
     if role == "vision" and saved_host == OFF:
         return _make(OFF, "", "global", True)
+    if role == "fallback" and not (saved_host and saved_model):
+        # Unset: no failover (never a silent switch to a model the person did not pick).
+        return EffectiveModel(host="", model="", source="global", explicit=False)
     if role == "review" and not (saved_host and saved_model):
         # Unset: QA checks with the model the code was written with (Coding, which may follow Chat).
         coding = get_effective_model(project_id, "coding", session, data)

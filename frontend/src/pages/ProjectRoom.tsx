@@ -15,7 +15,7 @@ import { api } from "../lib/api";
 import { levelFor } from "../lib/telemetry";
 import { ROOM_AVATAR, ROOM_ID, ROOM_NAME, isRoomId } from "../lib/types";
 import { faFolderClosed } from "@fortawesome/free-solid-svg-icons";
-import { emptyRoom } from "../state/reducer";
+import { emptyRoom, turnFor } from "../state/reducer";
 import { useResizableWidth } from "../state/useResizableWidth";
 import { errorText, useStore } from "../state/store";
 
@@ -77,7 +77,7 @@ export function ProjectRoomPage() {
   const room = useStore((s) => s.rooms[pid]) ?? emptyRoom();
   const activity = useStore((s) => s.activity);
   const agents = useStore((s) => s.agents);
-  const turn = useStore((s) => s.currentTurn);
+  const turn = useStore((s) => (pid ? turnFor(s, pid) : null));
   const loadProject = useStore((s) => s.loadProject);
   const loadThread = useStore((s) => s.loadThread);
   const setActiveThread = useStore((s) => s.setActiveThread);

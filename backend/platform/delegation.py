@@ -35,6 +35,7 @@ follow-up decision for the user, not made silently here.
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import re
 from pathlib import Path
 from typing import Any
@@ -100,6 +101,11 @@ def run_delegated(
     # Without this, a specialist's run_command / write_file never reached the approval gate: the
     # gate allows every call when no hook is bound, and the hook lives on the turn's own thread.
     approval_hook = current_approval_hook()
+    # Everything else the turn bound on its thread (its session, its project's folders, its Stop
+    # scope for commands, the project and bot ids) follows the run onto the engine's worker thread
+    # too: turns of different projects run at once, so the process-wide fallbacks may belong to
+    # another project. Each run gets its own copy (a Context cannot be entered twice at once).
+    caller_context = contextvars.copy_context()
     role = (bot.role or "").strip().lower()
     is_developer = role == "developer"
 
@@ -112,6 +118,7 @@ def run_delegated(
         heal = str(getattr(run, "task", "") or "").strip() if getattr(run, "parent_run_id", None) else ""
         run_task = f"{task}\n\n{heal}" if heal and heal != task else task
         return await asyncio.to_thread(
+            caller_context.copy().run,
             run_bot,
             bot,
             run_task,

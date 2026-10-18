@@ -60,6 +60,10 @@ COMPACT_KEEP_TOKENS = int(os.environ.get("CATCREW_COMPACT_KEEP_TOKENS", "20000")
 # Opt-in: one shared message history per work run, the cat being a swapped mask (see platform/shared_context.py).
 UNIFIED_CONTEXT = os.environ.get("CATCREW_UNIFIED_CONTEXT", "0") in ("1", "true", "True")
 
+# How many projects may run a turn at the same time (one lane per project). The cats are shared
+# by every project and their live status card is per cat, so the default stays one at a time.
+PARALLEL_PROJECTS = max(1, int(os.environ.get("CATCREW_PARALLEL_PROJECTS", "1") or 1))
+
 # --- Long-term memory (mem0ai, fully local) ---
 MEMORY_ENABLED = os.environ.get("CATCREW_MEMORY_ENABLED", "1") not in ("0", "false", "False")
 MEMORY_USER_ID = "catcrew_user"

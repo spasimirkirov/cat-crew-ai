@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { humanDuration, parseTs } from "../../lib/time";
 import { ROOM_AVATAR, ROOM_ID, ROOM_NAME, isRoomId, type Agent, type FileChange, type Message } from "../../lib/types";
 import { useNow } from "../../lib/useNow";
-import { emptyThread } from "../../state/reducer";
+import { emptyThread, turnFor } from "../../state/reducer";
 import { useStore } from "../../state/store";
 import { ExecutionCard } from "../ExecutionCard";
 import { EmptyState, Spinner } from "../Ui";
@@ -37,7 +37,7 @@ interface Props {
 export function ThreadView({ projectId, botId, agent }: Props) {
   const room = useStore((s) => s.rooms[projectId]);
   const agents = useStore((s) => s.agents);
-  const turn = useStore((s) => s.currentTurn);
+  const turn = useStore((s) => turnFor(s, projectId));
   const thread = room?.threads[botId] ?? emptyThread();
   const now = useNow(30_000);
 

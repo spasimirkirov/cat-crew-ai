@@ -77,6 +77,12 @@ def current_turn(request: Request) -> dict | None:
     return deps.chat_service(request).current_turn()
 
 
+@router.get("/turns")
+def running_turns(request: Request) -> list[dict]:
+    """Every running turn, one per project lane (oldest first)."""
+    return deps.chat_service(request).current_turns()
+
+
 @router.post("/turns/{turn_id}/abort", status_code=202)
 def abort_turn(turn_id: str, request: Request) -> dict:
     if not deps.chat_service(request).abort(turn_id):

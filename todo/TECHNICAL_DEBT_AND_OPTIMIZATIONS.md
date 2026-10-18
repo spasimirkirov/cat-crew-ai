@@ -18,7 +18,7 @@ Audit of the `cat-crew-ai` code base, first written in September 2026 against th
 | C-03 | Tokens | `SYSTEM_PROMPT = build_system_prompt()` runs hardware and Docker probes at import | P1 | S |
 | A-06 | DB | Chat sessions and registry are written non-atomically, whole-file | P1 | M |
 | N-03 | Packaging | No release build for the new stack (Tauri bundle + backend sidecar); the PyInstaller packager was retired to `legacy/` | P1 | M |
-| N-04 | Runtime | One turn at a time across all projects (process-global workspace and tool allow-list) | P2 | L |
+| N-04 | Runtime | Done for turns (per-turn `ContextVar`s, one lane per project); see H-01 for the remaining per-cat status | P2 | S |
 | N-05 | Runtime | Self-modify restart re-executes the backend mid-turn and does not cooperate with the desktop shell | P2 | M |
 | N-06 | API | `bot.staffed` may be emitted repeatedly for one cat | P2 | S |
 | N-07 | API | The runner's "Computer after this turn" note and role banners are stored inside message text and stripped only on the wire | P2 | S |
@@ -33,10 +33,8 @@ Audit of the `cat-crew-ai` code base, first written in September 2026 against th
 | N-11 | Orchestrator | The Cat Crew intent router is keyword-based (English + Bulgarian); no confidence score and no way for the user to override a misroute | P2 | M |
 | M-01 | Models | The Anthropic host, `browser_look` and the Gemini list endpoint are tested against fake responses only, never a live API | P2 | S |
 | M-02 | Models | Pixel and Aegis prompts are seeded once, so existing installs keep the old wording (the browser tools carry their own guidance) | P2 | S |
-| H-01 | Harness | One turn at a time across all projects; OpenClaw-style per-session lanes need per-turn state first (see N-04) | P2 | L |
-| H-02 | Harness | No model failover: a rate-limited or out-of-credit model stops the run (`model_block`) instead of trying a configured fallback model | P2 | M |
-| H-03 | Harness | The agent loop (`run_agent`, about 380 lines) still lives on `BaseProvider`; move it to `harness/loop.py` so providers only speak HTTP | P2 | M |
-| H-04 | Harness | Specialist prompts still say "Chief" for the orchestrator (`platform/runner.py`); rename to Cat Crew with an eval run before and after | P2 | S |
+| H-01 | Harness | Lanes per project are built (per-turn state, `CATCREW_PARALLEL_PROJECTS`), but default to one lane: a cat's live status card is per cat, not per project, so the same cat in two projects shows only the latest status. Make `activity_board` per (project, cat) before raising the default | P2 | M |
+| H-04 | Harness | Specialist prompts now say "Cat Crew" instead of "Chief" (`platform/runner.py`); run `python -m backend.evals` against a real model to confirm no regression | P2 | S |
 | N-12 | Hygiene | Legacy `chief` compatibility shims (session `bot_id`, orphaned `agent_*` rows, `chief` table, registry JSON key, `RunKind.CHIEF`, `ROLE_PACKS` role name) can be dropped after a one-off data migration | P2 | S |
 
 ## 1. Resolved by the pivot

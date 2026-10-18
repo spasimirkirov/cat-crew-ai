@@ -33,6 +33,11 @@ _resume_active = False
 _resume_goal = ""
 
 
+# Top-level folders of the install tree that hold runtime data (sessions, scratch, databases,
+# screenshots) or build output: writing there is not a change to CatCrewAI itself.
+_RUNTIME_DIRS = frozenset({"data", "node_modules", ".git", "__pycache__"})
+
+
 def note_catcrew_source_edit(path: Path | str) -> None:
     """Record a successful edit under the CatCrewAI install tree (this process)."""
     try:
@@ -42,6 +47,10 @@ def note_catcrew_source_edit(path: Path | str) -> None:
     except (OSError, ValueError):
         return
     rel = str(resolved.relative_to(BASE_DIR.resolve())).replace("\\", "/")
+    if rel.split("/", 1)[0] in _RUNTIME_DIRS:
+        # Runtime data, not source: a project with no folder works in data/scratch/<session>/,
+        # and every file a cat wrote there used to restart the whole app after the turn.
+        return
     if rel not in _touched_catcrew:
         _touched_catcrew.append(rel)
 

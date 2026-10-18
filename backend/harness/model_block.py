@@ -74,3 +74,36 @@ def take(project_id: str) -> ModelBlock | None:
 def clear(project_id: str) -> None:
     with _lock:
         _blocks.pop(str(project_id or ""), None)
+
+
+# -- failover memory --------------------------------------------------------------------------
+# After a run switched from a turned-away model to the Fallback model, later calls in the same
+# project (the next SOP phase, the next chat turn) go straight to the fallback for a while instead
+# of hitting the same wall first (and its retries with backoff).
+FAILOVER_TTL_S = 15 * 60
+_failovers: dict[tuple[str, str, str], float] = {}
+
+
+def remember_failover(project_id: str, host: str, model: str) -> None:
+    with _lock:
+        _failovers[(str(project_id or ""), str(host or ""), str(model or ""))] = time.time()
+
+
+def recently_failed_over(project_id: str, host: str, model: str) -> bool:
+    key = (str(project_id or ""), str(host or ""), str(model or ""))
+    with _lock:
+        at = _failovers.get(key)
+        if at is None:
+            return False
+        if time.time() - at > FAILOVER_TTL_S:
+            _failovers.pop(key, None)
+            return False
+        return True
+
+
+def reset() -> None:
+    """Forget every block and failover (tests)."""
+    with _lock:
+        _blocks.clear()
+        _failovers.clear()
+

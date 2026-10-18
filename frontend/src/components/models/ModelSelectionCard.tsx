@@ -234,7 +234,7 @@ export function ModelSelectionCard({ meta, hosts, draft, probe, dirty, saving, e
             className="input"
             value={draft.model}
             disabled
-            placeholder={inheritModelLabel ?? (meta.follows ? `Follows the ${meta.follows} model` : "Pick a host first")}
+            placeholder={inheritModelLabel ?? (meta.follows ? `Follows the ${meta.follows} model` : meta.unset ?? "Pick a host first")}
             readOnly
           />
         ) : loading ? (

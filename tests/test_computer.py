@@ -2,7 +2,8 @@
 
 from pathlib import Path
 
-from backend.providers.base import ToolCall, _call_key
+from backend.harness.loop import _call_key
+from backend.providers.base import ToolCall
 from backend.tools import repair_agent_path, run_command, write_file
 from backend.services.workspace import set_folders
 

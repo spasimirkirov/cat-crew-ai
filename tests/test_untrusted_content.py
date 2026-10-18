@@ -3,14 +3,13 @@ call tools natively cannot be made to run a command just by quoting a line from 
 
 from __future__ import annotations
 
+from backend.harness.untrusted import UNTRUSTED_CLOSE, mark_untrusted
 from backend.providers.base import (
-    UNTRUSTED_CLOSE,
     AssistantMessage,
     BaseProvider,
     Message,
     ToolCall,
     extract_tool_calls_from_content,
-    mark_untrusted,
 )
 
 _TOOLS = [

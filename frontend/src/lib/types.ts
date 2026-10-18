@@ -254,7 +254,7 @@ export interface RoleBrain {
 }
 
 export interface ModelsState {
-  roles: { chat: RoleBrain; coding: RoleBrain; memory: RoleBrain; vision: RoleBrain; planning: RoleBrain; review: RoleBrain; images: RoleBrain };
+  roles: { chat: RoleBrain; coding: RoleBrain; memory: RoleBrain; vision: RoleBrain; planning: RoleBrain; review: RoleBrain; fallback?: RoleBrain; images: RoleBrain };
   hosts: ModelHost[];
 }
 
@@ -336,6 +336,8 @@ export interface Bootstrap {
   projects: Project[];
   activity: Activity[];
   current_turn: Turn | null;
+  /** Every running turn, one per project lane (older servers send only `current_turn`). */
+  turns?: Turn[];
 }
 
 export interface BrowseResult {

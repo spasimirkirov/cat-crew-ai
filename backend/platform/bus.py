@@ -149,10 +149,11 @@ def emit_bot_released(project_id: str, bot_id: str) -> None:
     publish(BOT_RELEASED, {"bot_id": str(bot_id or "")}, project_id=str(project_id or ""))
 
 
-def emit_bot_activity(bot_id: str, status: str, state: str, text: str) -> None:
+def emit_bot_activity(bot_id: str, status: str, state: str, text: str, project_id: str = "") -> None:
     """Live per-bot state. ``status`` is already the *display* word (see
-    ``activity_board.display_status``). Has no project id: a bot's activity is
-    global, so it is delivered to every subscriber."""
+    ``activity_board.display_status``). A bot's activity is global, so the envelope has no project
+    id and it is delivered to every subscriber; ``data.project_id`` says which project's turn
+    wrote it ("" when unknown), so a client running two projects can tell them apart."""
     publish(
         BOT_ACTIVITY,
         {
@@ -160,6 +161,7 @@ def emit_bot_activity(bot_id: str, status: str, state: str, text: str) -> None:
             "status": str(status or "idle"),
             "state": str(state or "idle"),
             "text": str(text or ""),
+            "project_id": str(project_id or ""),
         },
     )
 

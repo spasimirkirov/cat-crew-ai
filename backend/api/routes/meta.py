@@ -26,6 +26,7 @@ def bootstrap(request: Request) -> dict:
         "projects": [views.project_view(p) for p in registry.projects.values()],
         "activity": [views.activity_view(i) for i in ids],
         "current_turn": deps.chat_service(request).current_turn(),
+        "turns": deps.chat_service(request).current_turns(),
     }
 
 

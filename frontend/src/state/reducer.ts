@@ -75,7 +75,10 @@ export interface CoreState {
   activity: Record<string, Activity>;
   projects: Project[];
   rooms: Record<string, RoomState>;
+  /** The most recently started running turn (kept for one-lane callers); see `turns`. */
   currentTurn: Turn | null;
+  /** Every running turn by project id: each project has its own lane, several may run at once. */
+  turns: Record<string, Turn>;
   proposals: Skill[];
   /** `${projectId}:${botId}` -> when the card popped in (drives the pop-in animation). */
   fresh: Record<string, number>;
@@ -108,6 +111,7 @@ export const initialCore = (): CoreState => ({
   projects: [],
   rooms: {},
   currentTurn: null,
+  turns: {},
   proposals: [],
   fresh: {},
   activeThread: null,
@@ -263,13 +267,17 @@ export function reduce(s: CoreState, ev: ServerEvent, now: number = Date.now()):
 
     case "turn.started": {
       const room = s.rooms[pid];
-      if (room?.modelIssue) return { currentTurn: ev.data, rooms: { ...s.rooms, [pid]: { ...room, modelIssue: null } } };
-      return { currentTurn: ev.data };
+      const turns = { ...s.turns, [ev.data.project_id || pid]: ev.data };
+      if (room?.modelIssue) return { currentTurn: ev.data, turns, rooms: { ...s.rooms, [pid]: { ...room, modelIssue: null } } };
+      return { currentTurn: ev.data, turns };
     }
 
     case "turn.finished":
     case "turn.failed": {
-      const patch: Partial<CoreState> = { currentTurn: s.currentTurn?.id === ev.data.turn_id ? null : s.currentTurn };
+      const turns = Object.fromEntries(Object.entries(s.turns).filter(([, t]) => t.id !== ev.data.turn_id));
+      const left = Object.values(turns).sort((a, b) => a.started_at.localeCompare(b.started_at));
+      const currentTurn = s.currentTurn?.id === ev.data.turn_id ? left[left.length - 1] ?? null : s.currentTurn;
+      const patch: Partial<CoreState> = { currentTurn, turns };
       const room = s.rooms[pid];
       if (room) {
         const threads: Record<string, ThreadState> = {};
@@ -310,4 +318,14 @@ export function reduce(s: CoreState, ev: ServerEvent, now: number = Date.now()):
     default:
       return null;
   }
+}
+
+/** The running turn of project `pid`, or null. Reads `turns`, falling back to `currentTurn`. */
+export function turnFor(s: Pick<CoreState, "turns" | "currentTurn">, pid: string): Turn | null {
+  return s.turns[pid] ?? (s.currentTurn?.project_id === pid ? s.currentTurn : null);
+}
+
+/** Some other project than `pid` has a turn running. */
+export function runningElsewhere(s: Pick<CoreState, "turns" | "currentTurn">, pid: string): boolean {
+  return Object.values(s.turns).some((t) => t.project_id !== pid) || Boolean(s.currentTurn && s.currentTurn.project_id !== pid);
 }

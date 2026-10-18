@@ -119,7 +119,7 @@ def run_bot(
     auto_build_bridge: bool = True,
     collect_tool_events: list[str] | None = None,
 ) -> str:
-    """Execute ``task`` as ``bot``; return a summary for Chief.
+    """Execute ``task`` as ``bot``; return a summary for Cat Crew.
 
     ``provider``/``abort`` default to the ambient ``ContextVar``s
     (``current_provider()``/``current_abort()``) for full backward
@@ -177,7 +177,7 @@ def run_bot(
 
     system = bot.system_prompt.strip() or (
         f"You are {bot.name}, a {bot.role} bot. Complete the assigned task with tools. "
-        "Do not chat with the user. Return a concise result for Chief."
+        "Do not chat with the user. Return a concise result for Cat Crew."
     )
     system += (
         "\n\nYou are a specialist bot, not CatCrewAI. The human never sees this turn. "
@@ -224,16 +224,16 @@ def run_bot(
     if kickoff and kickoff not in extra and kickoff not in goal:
         packed = "User brief:\n" + kickoff
         if extra:
-            packed += "\n\nChief notes:\n" + extra
+            packed += "\n\nCat Crew notes:\n" + extra
         extra = packed
     # Unified mode (platform/shared_context.py): this run shares one message history with the
-    # other cats, so the system message stays the pure persona (the mask) and Chief's notes ride
+    # other cats, so the system message stays the pure persona (the mask) and Cat Crew's notes ride
     # in the assignment instead.
     from .shared_context import active_thread
 
     shared = active_thread(project.id)
     if extra and shared is None:
-        system += "\n\nAdditional context from Chief:\n" + extra
+        system += "\n\nAdditional context from Cat Crew:\n" + extra
     if preload_note:
         system += "\n\nAssigned MCP tools are already loaded for this turn."
     from backend.services import mcp_service
@@ -371,7 +371,7 @@ def run_bot(
             )
 
     if shared is not None:
-        task_text = goal + ("\n\nContext from Chief:\n" + extra if extra else "")
+        task_text = goal + ("\n\nContext from Cat Crew:\n" + extra if extra else "")
         messages: list[dict[str, Any]] = shared.open_turn(system, bot.name, bot.role, task_text)
     else:
         messages = [
@@ -537,7 +537,7 @@ def _bridge_build(folder: Path) -> str:
 
 
 def computer_listing(folder: Path, *, limit: int = 40) -> str:
-    """Ground-truth top-level listing so Chief sees what is actually on disk."""
+    """Ground-truth top-level listing so Cat Crew sees what is actually on disk."""
     try:
         entries = sorted(folder.iterdir(), key=lambda p: p.name.lower())
     except OSError:

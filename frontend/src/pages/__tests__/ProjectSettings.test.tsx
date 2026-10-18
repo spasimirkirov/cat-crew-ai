@@ -7,7 +7,7 @@ import type { EffectiveModel, HostModels, ProjectModelsState, RoleName } from ".
 import { ProjectSettingsPage } from "../ProjectSettings";
 import { makeProject, seedStore, user } from "./helpers";
 
-const ROLE_NAMES: RoleName[] = ["chat", "coding", "memory", "vision", "planning", "review", "images"];
+const ROLE_NAMES: RoleName[] = ["chat", "coding", "memory", "vision", "planning", "review", "fallback", "images"];
 
 const eff = (host: string, model: string, source: EffectiveModel["source"] = "global"): EffectiveModel => ({ host, model, source, explicit: source !== "chat" && source !== "coding" });
 
@@ -19,6 +19,7 @@ const globalEffective = (): ProjectModelsState["global_effective"] => ({
   vision: eff("groq", "qwen-chat", "chat"),
   planning: eff("groq", "qwen-chat", "chat"),
   review: eff("deepseek", "deepseek-v4-pro", "coding"),
+  fallback: { host: "", model: "", source: "global", explicit: false },
   images: eff("comfyui", "sdxl"),
 });
 

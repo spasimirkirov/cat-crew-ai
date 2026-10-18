@@ -64,7 +64,7 @@ Environment variable `CATCREW_HOME` (default `C:\CatCrewAI` on Windows, `~/CatCr
 
 ## Brains
 
-**Models** picks a model per role: Chat, Coding, Memory, Vision, Planning and Images (an unset optional role follows Chat). Every model runs on a cloud host with its own key: OpenRouter (every vendor through one key), OpenAI, Anthropic, Google Gemini, DeepSeek, Groq, Mistral or xAI. Images can be Off. Model lists and capabilities come live from each host, and a long chat is summarised by the Memory model before it reaches a costly one. Search is DuckDuckGo; images use ComfyUI.
+**Models** picks a model per role: Chat, Coding, Memory, Vision, Planning, Review, Fallback and Images (an unset optional role follows Chat; Review follows Coding; an unset Fallback means a rate-limited model stops the run instead of handing over). Every model runs on a cloud host with its own key: OpenRouter (every vendor through one key), OpenAI, Anthropic, Google Gemini, DeepSeek, Groq, Mistral or xAI. Images can be Off. Model lists and capabilities come live from each host, and a long chat is summarised by the Memory model before it reaches a costly one. Search is DuckDuckGo; images use ComfyUI.
 
 ## UI
 

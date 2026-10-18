@@ -199,3 +199,15 @@ def test_orphaned_runs_are_marked_failed(isolated) -> None:
     again = RunRepo.get(reg.STORE_PATH, run.id)
     assert again is not None and again.status == RunStatus.FAILED and again.error == "app exited"
     assert RunRepo.reap_orphans(reg.STORE_PATH) == 0
+
+
+def test_files_in_runtime_data_are_not_catcrew_source_edits() -> None:
+    from backend.config import BASE_DIR
+    from backend.services import pending_restart
+
+    pending_restart.clear_touched_catcrew_files()
+    pending_restart.note_catcrew_source_edit(BASE_DIR / "data" / "scratch" / "s1" / "notes.txt")
+    assert pending_restart.touched_catcrew_files() == []  # a project with no folder works there
+    pending_restart.note_catcrew_source_edit(BASE_DIR / "backend" / "tools.py")
+    assert pending_restart.touched_catcrew_files() == ["backend/tools.py"]
+    pending_restart.clear_touched_catcrew_files()

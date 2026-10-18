@@ -38,7 +38,7 @@ from .chief import _format_delegation_result
 from .delegation import run_delegated
 from .models import Bot, Project, Registry
 from .registry import save_registry, staff_bot_on_project
-from ..providers.base import hit_round_cap, hit_stall
+from ..harness.loop import hit_round_cap, hit_stall
 
 _MENTION = re.compile(r"@(\w+)")
 
