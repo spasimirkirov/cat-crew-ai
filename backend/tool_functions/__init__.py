@@ -1,7 +1,8 @@
 """Role-specific Letta-style executable tools (Phase 15, Task #22).
 
 Each module here holds real Python functions for one role - Pulse
-(developer), Forge (devops), Aegis (qa) - registered into the ``tools`` /
+(developer), Forge (devops), Aegis (qa), Blaze (marketing), Lex (legal) -
+registered into the ``tools`` /
 ``agent_tools`` catalog (``platform/tool_registry.py`` + ``platform/db.py``)
 and assigned only to that role's bot, as a working demonstration of the
 per-agent tool matrix: unlike the legacy global ``TOOLS_SCHEMA``

@@ -16,15 +16,13 @@ import type { Tool } from "../lib/types";
 // Closures (not `api.tools` itself) so every call resolves the method at call time.
 const toolsApi: MatrixApi<Tool> = {
   list: () => api.tools.list(),
-  assign: (id, agentIds) => api.tools.assign(id, agentIds),
-  setGlobal: (id, on) => api.tools.setGlobal(id, on),
 };
 
 type ModalKind = "register" | "import" | null;
 
 export function ToolsPage() {
   const agents = useMatrixAgents();
-  const { items, loading, loadError, actionError, pending, reload, toggleAgent, toggleGlobal, dismissError } = useAssignmentMatrix(toolsApi);
+  const { items, loading, loadError, reload } = useAssignmentMatrix(toolsApi);
 
   const [query, setQuery] = useState("");
   const [modal, setModal] = useState<ModalKind>(null);
@@ -47,7 +45,7 @@ export function ToolsPage() {
     <div className="flex h-full flex-col">
       <PageHeader
         title="Tools"
-        subtitle="Python functions the cats can call. A lock marks an essential tool: always on for that cat."
+        subtitle="Python functions each cat ships with. A tool you register goes to every cat."
         actions={
           <>
             <button className="btn" onClick={() => setModal("import")}>
@@ -68,16 +66,6 @@ export function ToolsPage() {
             <FontAwesomeIcon icon={faCircleCheck} />
             <span className="min-w-0 flex-1">{notice}</span>
             <button className="btn btn-ghost btn-sm" onClick={() => setNotice(null)} aria-label="Dismiss message">
-              <FontAwesomeIcon icon={faXmark} />
-            </button>
-          </div>
-        )}
-        {actionError && (
-          <div className="flex items-start gap-2">
-            <div className="min-w-0 flex-1">
-              <ErrorNote message={actionError} />
-            </div>
-            <button className="btn btn-ghost btn-sm" onClick={dismissError} aria-label="Dismiss error">
               <FontAwesomeIcon icon={faXmark} />
             </button>
           </div>
@@ -122,10 +110,7 @@ export function ToolsPage() {
               agents={agents}
               columnLabel="Tool"
               selectedId={openId}
-              pendingIds={pending}
               onOpen={setOpenId}
-              onToggleAgent={toggleAgent}
-              onToggleGlobal={toggleGlobal}
             />
           )}
         </div>

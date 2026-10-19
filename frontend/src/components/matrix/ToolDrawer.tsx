@@ -69,7 +69,7 @@ export function ToolDrawer({ tool, agents, onClose, onDeleted }: Props) {
             </button>
           </>
         ) : essentialFor.length > 0 ? (
-          <span className="mr-auto text-xs text-muted">Essential for {essentialFor.map((a) => a.name).join(", ")}: it cannot be deleted.</span>
+          <span className="mr-auto text-xs text-muted">In the bundle of {essentialFor.map((a) => a.name).join(", ")}: it cannot be deleted.</span>
         ) : (
           <button className="btn btn-danger btn-sm" onClick={() => setConfirming(true)}>
             <FontAwesomeIcon icon={faTrash} />

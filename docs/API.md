@@ -102,13 +102,15 @@ interface Skill {                // Playbook (SKILL.md)
   playbook_path: string;         // repo-relative, forward slashes (never an absolute path)
   source_url: string;
   is_global: boolean;            // attached to every agent
-  agent_ids: string[];           // agents this skill is explicitly assigned to
+  agent_ids: string[];           // agents this skill is assigned to
+  locked_agent_ids: string[];    // cats whose built-in bundle holds it (platform/essentials.py)
   body?: string;                 // markdown, only on GET /skills/{id}
 }
 interface Tool {                 // Executable (Letta-style Python function tool)
   id: string; name: string; description: string;
   handler: string;               // "backend.tool_functions.pulse_tools:write_file"
   is_global: boolean; agent_ids: string[];
+  locked_agent_ids: string[];    // cats whose built-in bundle holds it
   schema?: object;               // JSON schema, only on GET /tools/{id}
 }
 ```
@@ -194,11 +196,13 @@ The brief is not shown as a user message. Writing in a cat's thread is a direct 
 | POST | `/api/asks/{ask_id}` | `{answer}` | `204` |
 
 ### Skills (playbooks) and Tools (executables)
+Each cat's tools and playbooks are a fixed bundle (`platform/essentials.py`); the front end only shows them. A skill or tool in no bundle is placed by the backend when it is created, imported or synced: on the cats its `target_roles` names, otherwise on every cat (`is_global`). The `assignments` and `global` routes remain for scripts; a bundle item cannot be removed through them.
+
 | Method | Path | Body | Returns |
 | --- | --- | --- | --- |
 | GET | `/api/skills` | – | `Skill[]` |
 | GET | `/api/skills/{id}` | – | `Skill` with `body` |
-| POST | `/api/skills` | `{name, description, body}` | `201 Skill` (custom overlay) |
+| POST | `/api/skills` | `{name, description, body, target_roles?}` | `201 Skill` (custom overlay). `target_roles`: cat ids or roles, comma-separated (`"pulse, qa"`); empty makes it global |
 | POST | `/api/skills/import` | `{url}` | `201 {message, skills:Skill[]}` (fetch a SKILL.md from a URL) |
 | PUT | `/api/skills/{id}/global` | `{on: boolean}` | `Skill` (attach to every agent) |
 | DELETE | `/api/skills/{id}` | – | `204` (`403` for bundled) |
@@ -210,10 +214,10 @@ The brief is not shown as a user message. Writing in a cat's thread is a direct 
 | GET | `/api/tools/available` | – | `[{handler, name, description, registered}]` — public functions in `backend/tool_functions` that can be registered |
 | POST | `/api/tools/import` | `{url}` | `201 {message, tools:Tool[]}` |
 | GET | `/api/tools/{id}` | – | `Tool` with `schema` |
-| POST | `/api/tools` | `{handler: "module:function"}` | `201 Tool` (`422` if it cannot be imported or has no schema) |
+| POST | `/api/tools` | `{handler: "module:function"}` | `201 Tool`, global unless a bundle names it (`422` if it cannot be imported or has no schema) |
 | PUT | `/api/tools/{id}/global` | `{on: boolean}` | `Tool` |
-| PUT | `/api/tools/{id}/assignments` | `{agent_ids: string[]}` | `Tool` (same rule as skills). A cat for which the tool is essential (`Tool.locked_agent_ids`, see `platform/essentials.py`) always keeps it, whatever the request says. |
-| DELETE | `/api/tools/{id}` | – | `204`; `409` when the tool is essential for at least one cat |
+| PUT | `/api/tools/{id}/assignments` | `{agent_ids: string[]}` | `Tool` (same rule as skills). A cat whose bundle holds the tool (`Tool.locked_agent_ids`) always keeps it, whatever the request says. |
+| DELETE | `/api/tools/{id}` | – | `204`; `409` when the tool is in a cat's bundle |
 
 ### Models (no secrets)
 `GET /api/models` → `{roles: {chat|coding|memory|vision|planning|images: {host, model}}, hosts:[{id, label, enabled, cloud, configured?, key_source?}]}`.

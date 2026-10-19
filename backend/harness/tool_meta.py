@@ -100,6 +100,8 @@ TOOLS: dict[str, ToolMeta] = {
     "web_fetch": _read(untrusted=True),
     "image_search": _read(untrusted=True),
     "http_endpoint_audit": _read(untrusted=True, volatile=True),
+    "seo_page_audit": _read(untrusted=True, volatile=True),
+    "data_collection_scan": _read(),
     "mcp_call_tool": ToolMeta(kind=ACT, untrusted=True),  # judged by its target in approvals.py
     # -- the QA browser (one shared session: never in parallel) ---------------------------------------
     "browser_check": _read(untrusted=True, parallel=False, volatile=True),

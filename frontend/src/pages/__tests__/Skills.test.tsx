@@ -26,7 +26,7 @@ function mockList(list: Skill[] = [BUNDLED, CUSTOM, MARKET, AUTO]) {
 }
 
 const rowOf = (name: string) => screen.getByRole("button", { name: `Open ${name}` }).closest("tr") as HTMLElement;
-const cell = (skillName: string, agentName: string) => screen.getByRole("checkbox", { name: `Assign ${skillName} to ${agentName}` });
+const has = (skillName: string, agentName: string) => screen.queryByRole("img", { name: `${agentName} has ${skillName}` });
 
 beforeEach(() => {
   seedStore();
@@ -40,35 +40,31 @@ afterEach(() => {
 
 describe("SkillsPage", () => {
   it("never shows a Cat Crew column, whichever id the orchestrator has in the store", async () => {
-    // Regression: "Could not update … Unknown agent 'chief'". Cat Crew is the orchestrator, not
-    // an agent: skills belong to specialist cats only.
+    // Cat Crew is the orchestrator, not an agent: skills belong to specialist cats only.
     seedStore([...AGENTS, agent("crew", { name: "Cat Crew", role: "room" }), agent("chief", { name: "Chief", role: "chief" })]);
-    const assign = vi.spyOn(api.skills, "assign").mockResolvedValue({ ...BUNDLED, agent_ids: ["pulse", "pixel"] });
     mockList();
     renderPage();
     await screen.findByRole("button", { name: "Open static-web" });
     const headers = screen.getAllByRole("columnheader").map((h) => h.textContent ?? "");
     expect(headers.some((h) => /cat crew|chief/i.test(h))).toBe(false);
-    expect(screen.queryByRole("checkbox", { name: /to Cat Crew|to Chief/ })).toBeNull();
-    fireEvent.click(cell("static-web", "Pixel"));
-    await waitFor(() => expect(assign).toHaveBeenCalledWith("s_bundled", ["pulse", "pixel"]));
-    expect(assign.mock.calls[0][1]).not.toContain("chief");
-    expect(assign.mock.calls[0][1]).not.toContain("crew");
+    expect(screen.queryByRole("img", { name: /^(Cat Crew|Chief) has/ })).toBeNull();
   });
 
-  it("renders skill rows and agent columns, core cats first", async () => {
+  it("renders skill rows and agent columns, core cats first, read-only", async () => {
     mockList();
     renderPage();
     expect(await screen.findByRole("button", { name: "Open static-web" })).toBeInTheDocument();
-    expect(screen.getByText("Playbooks that teach the cats how to work")).toBeInTheDocument();
+    expect(screen.getByText(/Playbooks each cat ships with/)).toBeInTheDocument();
     expect(screen.getByText("Showing 4 of 4 skills")).toBeInTheDocument();
 
     const headers = screen.getAllByRole("columnheader").map((h) => h.querySelector("span.truncate")?.textContent ?? h.textContent?.trim());
     expect(headers.slice(0, 6)).toEqual(["Skill", "Global", "Pulse", "Aegis", "Pixel", "Scout"]);
 
-    // pre-assigned cell is on, others off
-    expect(cell("static-web", "Pulse")).toHaveAttribute("aria-checked", "true");
-    expect(cell("static-web", "Aegis")).toHaveAttribute("aria-checked", "false");
+    expect(has("static-web", "Pulse")).toBeInTheDocument();
+    expect(has("static-web", "Aegis")).toBeNull();
+    // Nothing to toggle: the bundles are built in and new skills are placed by the backend.
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.queryByRole("switch")).toBeNull();
     // type chips
     const row = within(rowOf("seo-audit"));
     expect(row.getByText("marketplace")).toBeInTheDocument();
@@ -79,62 +75,18 @@ describe("SkillsPage", () => {
     seedStore([]);
     mockList();
     renderPage();
-    expect(await screen.findByRole("checkbox", { name: "Assign static-web to Pulse" })).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: "Pulse has static-web" })).toBeInTheDocument();
     expect(api.agents.list).toHaveBeenCalled();
   });
 
-  it("toggling a cell sends the FULL agent list and keeps the new state", async () => {
-    mockList();
-    const assign = vi.spyOn(api.skills, "assign").mockResolvedValue({ ...BUNDLED, agent_ids: ["pulse", "aegis"] });
-    renderPage();
-    await screen.findByRole("button", { name: "Open static-web" });
-
-    fireEvent.click(cell("static-web", "Aegis"));
-    expect(cell("static-web", "Aegis")).toHaveAttribute("aria-checked", "true"); // optimistic
-    await waitFor(() => expect(assign).toHaveBeenCalledWith("s_bundled", ["pulse", "aegis"]));
-    await waitFor(() => expect(cell("static-web", "Aegis")).not.toBeDisabled());
-    expect(cell("static-web", "Aegis")).toHaveAttribute("aria-checked", "true");
-
-    // un-assign sends the list without that cat
-    assign.mockResolvedValue({ ...BUNDLED, agent_ids: ["aegis"] });
-    fireEvent.click(cell("static-web", "Pulse"));
-    await waitFor(() => expect(assign).toHaveBeenLastCalledWith("s_bundled", ["aegis"]));
-  });
-
-  it("rolls back and shows an inline error when assign fails", async () => {
-    mockList();
-    vi.spyOn(api.skills, "assign").mockRejectedValue(new ApiError(500, "disk is full"));
-    renderPage();
-    await screen.findByRole("button", { name: "Open static-web" });
-
-    fireEvent.click(cell("static-web", "Aegis"));
-    expect(cell("static-web", "Aegis")).toHaveAttribute("aria-checked", "true");
-    const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("Could not update static-web: disk is full");
-    expect(cell("static-web", "Aegis")).toHaveAttribute("aria-checked", "false");
-    expect(cell("static-web", "Pulse")).toHaveAttribute("aria-checked", "true");
-
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss error" }));
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  });
-
-  it("the Global toggle locks the row's agent cells", async () => {
-    mockList();
-    const setGlobal = vi.spyOn(api.skills, "setGlobal").mockResolvedValue({ ...CUSTOM, is_global: true });
+  it("a global skill shows on every cat", async () => {
+    mockList([BUNDLED, { ...CUSTOM, is_global: true }]);
     renderPage();
     await screen.findByRole("button", { name: "Open release-notes" });
-    expect(cell("release-notes", "Pulse")).not.toBeDisabled();
-
-    fireEvent.click(screen.getByRole("switch", { name: "Make release-notes global" }));
-    await waitFor(() => expect(setGlobal).toHaveBeenCalledWith("s_custom", true));
-
-    for (const name of ["Pulse", "Aegis", "Pixel", "Scout"]) {
-      await waitFor(() => expect(cell("release-notes", name)).toBeDisabled());
-      expect(cell("release-notes", name)).toHaveAttribute("aria-checked", "true");
-    }
-    expect(within(rowOf("release-notes")).getAllByTitle("Global: attached to every cat")).toHaveLength(4);
-    // other rows stay editable
-    expect(cell("seo-audit", "Pulse")).not.toBeDisabled();
+    expect(screen.getByRole("img", { name: "release-notes is global" })).toBeInTheDocument();
+    for (const name of ["Pulse", "Aegis", "Pixel", "Scout"]) expect(has("release-notes", name)).toBeInTheDocument();
+    expect(within(rowOf("release-notes")).getAllByTitle("Global: every cat has it")).toHaveLength(5);
+    expect(has("static-web", "Pixel")).toBeNull();
   });
 
   it("filters by type and by search text", async () => {
@@ -248,11 +200,12 @@ describe("SkillsPage", () => {
       fireEvent.change(within(dialog).getByLabelText("Name"), { target: { value: "  deploy-checklist " } });
       fireEvent.change(within(dialog).getByLabelText("Description"), { target: { value: "Ship it" } });
       fireEvent.change(within(dialog).getByLabelText("Playbook (Markdown)"), { target: { value: "# Steps\n1. go" } });
+      fireEvent.change(within(dialog).getByLabelText("For which cats (optional)"), { target: { value: " forge, qa " } });
       expect(submit).toBeEnabled();
       list.mockResolvedValue([CUSTOM, created]);
       fireEvent.click(submit);
 
-      await waitFor(() => expect(create).toHaveBeenCalledWith({ name: "deploy-checklist", description: "Ship it", body: "# Steps\n1. go" }));
+      await waitFor(() => expect(create).toHaveBeenCalledWith({ name: "deploy-checklist", description: "Ship it", body: "# Steps\n1. go", target_roles: "forge, qa" }));
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
       expect(await screen.findByRole("button", { name: "Open deploy-checklist" })).toBeInTheDocument();
       expect(screen.getByRole("status")).toHaveTextContent("Created deploy-checklist.");
@@ -354,49 +307,34 @@ describe("SkillsPage", () => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
-    it("clicking a toggle does not open the drawer", async () => {
-      mockList();
-      vi.spyOn(api.skills, "assign").mockResolvedValue({ ...CUSTOM, agent_ids: ["pulse"] });
-      renderPage();
-      await screen.findByRole("button", { name: "Open release-notes" });
-      fireEvent.click(cell("release-notes", "Pulse"));
-      await waitFor(() => expect(api.skills.assign).toHaveBeenCalled());
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    });
   });
 
   it("includes non-core cats as extra columns", async () => {
     seedStore([agent("pulse"), agent("scout", { is_system: false })]);
     mockList([CUSTOM]);
     renderPage();
-    expect(await screen.findByRole("checkbox", { name: "Assign release-notes to Scout" })).toBeInTheDocument();
+    await screen.findByRole("button", { name: "Open release-notes" });
+    const headers = screen.getAllByRole("columnheader").map((h) => h.textContent ?? "");
+    expect(headers.some((h) => h.includes("Scout"))).toBe(true);
   });
 });
 
-describe("SkillsPage essential playbooks", () => {
-  it("shows an essential playbook as locked for its cat, while other cats still toggle", async () => {
+describe("SkillsPage bundle playbooks", () => {
+  it("marks a playbook from a cat's bundle as built in", async () => {
     const WEB = skill("s_web", "static-web", { type: "bundled", agent_ids: ["pulse"], locked_agent_ids: ["pulse"] });
     mockList([WEB]);
-    const assign = vi.spyOn(api.skills, "assign").mockResolvedValue({ ...WEB, agent_ids: ["pulse", "aegis"] });
     renderPage();
-
-    const locked = await screen.findByRole("checkbox", { name: "static-web is essential for Pulse and always on" });
-    expect(locked).toBeDisabled();
-    expect(locked).toHaveAttribute("aria-checked", "true");
-    fireEvent.click(locked);
-    expect(assign).not.toHaveBeenCalled();
-
-    fireEvent.click(cell("static-web", "Aegis"));
-    await waitFor(() => expect(assign).toHaveBeenCalled());
-    expect([...assign.mock.calls[0][1]].sort()).toEqual(["aegis", "pulse"]);
+    const mark = await screen.findByRole("img", { name: "Pulse has static-web" });
+    expect(mark).toHaveAttribute("title", "Built into this cat's bundle");
+    expect(has("static-web", "Aegis")).toBeNull();
   });
 
-  it("says in the drawer which cats cannot lose it", async () => {
+  it("says in the drawer which cats it is built into", async () => {
     const WEB = skill("s_web", "static-web", { type: "bundled", agent_ids: ["pulse"], locked_agent_ids: ["pulse"] });
     mockList([WEB]);
     vi.spyOn(api.skills, "get").mockResolvedValue({ ...WEB, body: "# Web" });
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Open static-web" }));
-    expect(await screen.findByText(/Essential for Pulse: it cannot be unassigned/)).toBeInTheDocument();
+    expect(await screen.findByText(/In the bundle of Pulse/)).toBeInTheDocument();
   });
 });

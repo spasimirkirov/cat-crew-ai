@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from backend import agent_context
 from backend.api import deps, views
 from backend.db import ledger
-from backend.platform import auto_skill
+from backend.platform import auto_skill, role_tools
 from backend.platform.essentials import essential_agents_for_skill
 from backend.platform.orchestrator import without_room
 
@@ -19,6 +19,8 @@ class SkillCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     description: str = ""
     body: str = ""
+    # Cat ids or roles this playbook is for ("pulse, qa"); empty means every cat.
+    target_roles: str = ""
 
 
 class Assignments(BaseModel):
@@ -87,6 +89,7 @@ def _all_views() -> list[dict]:
 def list_skills(refresh: bool = False) -> list[dict]:
     if refresh:
         ledger.sync_skills_from_disk()
+        role_tools.place_extra_skills()
     return _all_views()
 
 
@@ -101,6 +104,7 @@ def list_proposals() -> list[dict]:
 def import_skill(body: ImportBody) -> dict:
     message = agent_context.import_skill_from_url(body.url.strip())
     ledger.sync_skills_from_disk()
+    role_tools.place_extra_skills()
     return {"message": message, "skills": _all_views()}
 
 
@@ -122,7 +126,9 @@ def create_skill(body: SkillCreate) -> dict:
         playbook_path=str(skill.path),
         type="custom",
         version=skill.version,
+        target_roles=",".join(p.strip().lower() for p in body.target_roles.split(",") if p.strip()),
     )
+    role_tools.place_extra_skills()
     return _view(_row(skill_id))
 
 

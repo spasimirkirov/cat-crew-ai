@@ -330,10 +330,17 @@ def _agent_assigned_skill_names(agent_id: str) -> set[str] | None:
         assigned = db.skills_for_agent(agent_id)
     except Exception:  # noqa: BLE001
         assigned = []
-    from backend.platform.essentials import essential_skills_for_agent
-
     names = {str(item.get("name") or "").strip().lower() for item in assigned}
-    return names | set(essential_skills_for_agent(agent_id))
+    return names | set(_bundle_skills(agent_id))
+
+
+def _bundle_skills(agent_id: str) -> tuple[str, ...]:
+    """Playbooks ``agent_id`` always has (``platform/essentials.py``): its cat bundle, or Cat
+    Crew's own set for the orchestrator, which has no ``agent_skills`` rows."""
+    from backend.platform.essentials import CREW_SKILLS, essential_skills_for_agent
+    from backend.platform.orchestrator import is_room_id
+
+    return CREW_SKILLS if is_room_id(agent_id) else essential_skills_for_agent(agent_id)
 
 
 def read_skill(name: str, *, agent_id: str = "") -> str:
@@ -605,11 +612,9 @@ def skills_prompt_index(agent_id: str = "") -> str:
                 assigned = db.skills_for_agent(resolved_agent)
             except Exception:  # noqa: BLE001
                 assigned = []
-            # Essential playbooks are listed even when their DB row is missing (platform/essentials.py).
-            from backend.platform.essentials import essential_skills_for_agent
-
+            # Bundled playbooks are listed even when their DB row is missing (platform/essentials.py).
             have = {str(item.get("slug") or item.get("name") or "").strip().lower() for item in assigned}
-            for slug in essential_skills_for_agent(resolved_agent):
+            for slug in _bundle_skills(resolved_agent):
                 if slug not in have:
                     skill = find_skill(slug)
                     if skill is not None:

@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from backend.api import deps, views
 from backend.db import ledger
-from backend.platform import tool_registry
+from backend.platform import role_tools, tool_registry
 from backend.platform.essentials import essential_agents_for_slug
 from backend.platform.orchestrator import without_room
 
@@ -99,6 +99,7 @@ def available_tools() -> list[dict]:
 @router.post("/tools/import", status_code=201)
 def import_tool(body: ImportBody) -> dict:
     message = tool_registry.import_tool_from_url(body.url.strip())
+    role_tools.place_extra_tools()
     return {"message": message, "tools": list_tools()}
 
 
@@ -116,6 +117,7 @@ def create_tool(body: ToolCreate) -> dict:
         tool_id = tool_registry.register_tool_function(slug, fn, handler_path=handler, type="system")
     except Exception as exc:  # noqa: BLE001 - surface import/schema problems as 422
         raise HTTPException(422, f"Could not register {handler!r}: {exc}") from exc
+    role_tools.place_extra_tools()
     return _view(_row(tool_id), with_schema=True)
 
 

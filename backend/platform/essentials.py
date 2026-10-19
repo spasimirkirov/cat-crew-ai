@@ -1,21 +1,25 @@
-"""Which tools and playbooks a cat can never be without ("essential"), and which are the user's choice.
+"""Each cat's bundle: the tools and playbooks it ships with. The user does not pick them.
 
-Two kinds of tool exist. **Essential** tools are what the role cannot do its job without:
-a developer that cannot write or run anything, a designer that cannot build what it styles,
-a specialist that cannot call ``report_task_results`` all end up looping on a tool they were
-never given. Those are always attached: they cannot be unassigned in the Tools page, dropped
-through an agent's ``tools`` list, or removed from the database by accident, and they are
-re-attached on every start-up. **Optional** tools (web search, image generation, the
-interactive browser controls, Docker or VPS probes...) are the ones the user toggles.
+Every cat gets exactly what its job in the pipeline (``platform/sop.py``) needs, and nothing it
+has to be talked out of. Three layers, all fixed here:
 
-Skills (playbooks, ``backend/skills/``) follow the same rule: ``ESSENTIAL_SKILLS`` are the
-playbooks a cat's job depends on (the developer's stack and coding playbooks, say). They are
-re-assigned on every start-up, cannot be unassigned in the Skills page, and always show in the
-cat's skill index and pass ``read_skill``, even when the database row is missing.
+* **Built-in tools** (``backend/tools.py``) per role: ``ESSENTIAL_BUILTINS``. A role's pack in
+  ``platform/toolset.py`` may add a few more, but never fewer.
+* **Registry tools** (``backend/tool_functions/``) per cat: ``ESSENTIAL_ROLE_TOOLS``. Registered
+  and (re)assigned on every start-up by ``platform/role_tools.py``.
+* **Playbooks** (``backend/skills/``) per cat: ``ESSENTIAL_SKILLS``, plus ``CREW_SKILLS`` for
+  the Cat Crew chat (the orchestrator, which is never a row in ``agent_skills``).
 
-This module is the single source of truth and has no imports, so the tool sets, the role-tool
-seeding, the API and the tests can all read it without cycles. To change what a role must
-have, change it here.
+A bundle item cannot be unassigned through the API, dropped through an agent's ``tools`` list,
+or lost with a database row: it is re-attached on every start, and it always shows in the cat's
+skill index and passes ``read_skill``. The Skills and Tools pages only show the bundles.
+
+A skill or tool that is not in any bundle (written by the user, imported from a URL, registered
+from the marketplace) is placed automatically: on the cats its ``target_roles`` names, or on
+every cat when it names none (``role_tools.place_extra_skills`` / ``place_extra_tools``).
+
+This module has no imports, so the tool sets, the start-up seeding, the API and the tests can
+all read it without cycles. To change what a cat ships with, change it here.
 """
 
 from __future__ import annotations
@@ -36,49 +40,59 @@ UNIVERSAL = (
 WRITE = ("write_file", "replace_in_file", "create_directory")
 # Roles that build and run what is on disk.
 SHELL = ("run_command", "read_terminal", "git_status", "git_diff")
-
+# Read-only history: what changed and when, for a planner or a reviewer.
+GIT_READ = ("git_status", "git_diff", "git_log")
+# Current facts from the web: regulations, competitors, search trends.
+WEB = ("web_search", "web_fetch")
 # Roles that build or check software: they must be able to look up the official docs (Forge picked
 # a package its Laravel version does not support, with no way to check).
-DOCS = ("docs_search", "web_search", "web_fetch")
+DOCS = ("docs_search", *WEB)
 
 # Built-in tools (backend/tools.py) per role.
 ESSENTIAL_BUILTINS: dict[str, tuple[str, ...]] = {
-    "vanguard": (*UNIVERSAL, *WRITE, *DOCS),
+    # Plans the build and turns problem reports into fix plans: it reads what changed on disk.
+    "vanguard": (*UNIVERSAL, *WRITE, *DOCS, *GIT_READ),
     "architect": (*UNIVERSAL, *WRITE, *DOCS),
-    "prompt_engineer": (*UNIVERSAL, *WRITE),
+    # Checks that the stack the brief names exists and fits (versions, hosting) before Vanguard plans.
+    "prompt_engineer": (*UNIVERSAL, *WRITE, *DOCS),
     "lead": UNIVERSAL,
     "accountant": UNIVERSAL,
-    "legal": (*UNIVERSAL, *WRITE),
-    "pr": (*UNIVERSAL, *WRITE),
-    "marketing": (*UNIVERSAL, *WRITE),
-    "designer": (*UNIVERSAL, *WRITE, *SHELL, *DOCS, "copy_path"),
+    "legal": (*UNIVERSAL, *WRITE, *WEB),
+    "pr": (*UNIVERSAL, *WRITE, *WEB),
+    "marketing": (*UNIVERSAL, *WRITE, *WEB, "image_search"),
+    "designer": (*UNIVERSAL, *WRITE, *SHELL, *DOCS, "copy_path", "image_search"),
     "developer": (*UNIVERSAL, *WRITE, *SHELL, *DOCS, "scaffold_project", "copy_path", "move_path", "git_add", "git_log", "git_show"),
-    "devops": (*UNIVERSAL, *WRITE, *SHELL, *DOCS, "scaffold_project", "run_smoke_test", "git_add", "git_log", "git_show", "docker_info"),
+    "devops": (*UNIVERSAL, *WRITE, *SHELL, *DOCS, "scaffold_project", "run_smoke_test", "git_add", "git_log", "git_show", "git_branch", "docker_info"),
     # QA writes the automated tests it re-runs on every check, so it needs to write files too.
     "qa": (*UNIVERSAL, *WRITE, *SHELL, *DOCS, "run_smoke_test", "browser_check", "git_log"),
 }
 
-# Registry tools (backend/tool_functions/, assigned per cat in the Tools page): (cat id, slug).
-# Everything else registered for a cat (browser_look, browser_select_option, read_code_ast,
-# docker_container_status, vps_health_check, ...) is optional.
+# The interactive Playwright session (backend/tool_functions/qa_tools.py), text-first.
+BROWSER_ALL = (
+    "browser_navigate", "browser_snapshot", "browser_inspect", "browser_set_viewport",
+    "browser_click", "browser_type", "browser_select_option", "browser_take_screenshot",
+    "browser_look", "browser_close",
+)
+# Enough to open a page and read it as text.
+BROWSER_READ = ("browser_navigate", "browser_snapshot", "browser_close")
+
+# Registry tools (backend/tool_functions/) per cat: (cat id, slug).
 ESSENTIAL_ROLE_TOOLS: frozenset[tuple[str, str]] = frozenset(
     {
-        # Aegis (QA) has to be able to open, inspect and drive the page and run the checks.
-        *(("aegis", slug) for slug in (
-            "browser_navigate", "browser_snapshot", "browser_inspect", "browser_click",
-            "browser_type", "browser_set_viewport", "browser_take_screenshot", "browser_close",
-            "run_test_suite", "http_endpoint_audit",
-        )),
-        # Pixel (design) has to be able to see the page it styles, text-first.
-        *(("pixel", slug) for slug in (
-            "browser_navigate", "browser_snapshot", "browser_inspect",
-            "browser_set_viewport", "browser_take_screenshot", "browser_close",
-        )),
-        ("pulse", "write_file_patch"),
-        ("pulse", "git_diff_inspector"),
-        ("forge", "execute_terminal_cmd"),
-        # The lead turns a problem report into fix tasks with this; without it there is no plan.
+        # Vanguard turns a problem report into fix tasks with this; without it there is no plan.
         ("vanguard", "create_fix_task"),
+        # Pulse patches code, sees the shape of its own diff, and requests each page it built.
+        *(("pulse", slug) for slug in ("write_file_patch", "git_diff_inspector", "read_code_ast", "http_endpoint_audit")),
+        # Pixel opens, inspects and resizes the page it styles, and asks Vision when one is set.
+        *(("pixel", slug) for slug in BROWSER_ALL),
+        # Aegis drives the page, runs the suite and audits the endpoints.
+        *(("aegis", slug) for slug in (*BROWSER_ALL, "browser_mcp_screenshot", "run_test_suite", "http_endpoint_audit")),
+        # Forge runs the environment and checks it after a deploy.
+        *(("forge", slug) for slug in ("execute_terminal_cmd", "docker_container_status", "vps_health_check", "http_endpoint_audit")),
+        # Blaze reads the live copy and audits what search engines and share cards see.
+        *(("blaze", slug) for slug in (*BROWSER_READ, "seo_page_audit")),
+        # Lex grounds the privacy policy in what the code actually collects and the site shows.
+        *(("lex", slug) for slug in (*BROWSER_READ, "data_collection_scan")),
     }
 )
 
@@ -92,7 +106,7 @@ def is_essential_role_tool(bot_id: str, slug: str) -> bool:
 
 
 def essential_agents_for_slug(slug: str) -> frozenset[str]:
-    """Cat ids for which registry tool ``slug`` is essential (empty: it is optional everywhere)."""
+    """Cat ids whose bundle holds registry tool ``slug`` (empty: it is in no bundle)."""
     return frozenset(bot for bot, name in ESSENTIAL_ROLE_TOOLS if name == slug)
 
 
@@ -100,34 +114,47 @@ def essential_slugs_for_agent(bot_id: str) -> tuple[str, ...]:
     return tuple(sorted(slug for bot, slug in ESSENTIAL_ROLE_TOOLS if bot == str(bot_id or "").strip()))
 
 
-# Skills (playbook slugs, backend/skills/<slug>/SKILL.md): (cat id, slug). Everything else is optional.
-ESSENTIAL_SKILLS: frozenset[tuple[str, str]] = frozenset(
-    {
-        # Pulse builds: the coding playbook (long scaffolds, continue-across-turns) and the web stack.
-        ("pulse", "coding-companion"),
-        ("pulse", "static-web"),
-        # Pixel styles and builds what it styles: the same web stack.
-        ("pixel", "static-web"),
-        # Vanguard plans the build and hands it out: it has to know how the coder is told to work.
-        ("vanguard", "coding-companion"),
-        # Where the answers are: the official docs of the stack, looked up instead of remembered.
-        *((cat, "docs-lookup") for cat in ("vanguard", "forge", "pulse", "pixel", "aegis")),
-        # Laravel projects: setup, structure and the checks that prove a page works.
-        *((cat, "laravel") for cat in ("vanguard", "forge", "pulse", "pixel", "aegis", "blaze")),
-        # QA proves the product with tests it writes once and re-runs; Pulse keeps them green.
-        ("aegis", "automated-testing"),
-        ("pulse", "automated-testing"),
-        # The design system lives in DESIGN.md: Pixel writes it, Pulse and Aegis build and check against it.
-        *((cat, "design-md") for cat in ("vanguard", "pulse", "pixel", "aegis")),
-    }
-)
+def _pairs(bundles: dict[str, tuple[str, ...]]) -> frozenset[tuple[str, str]]:
+    return frozenset((cat, slug) for cat, slugs in bundles.items() for slug in slugs)
+
+
+# Playbooks (backend/skills/<slug>/SKILL.md) per cat.
+SKILL_BUNDLES: dict[str, tuple[str, ...]] = {
+    # Turns the raw brief into the blueprint everyone downstream reads; checks the stack is real.
+    "cipher": ("task-blueprint", "docs-lookup", "web-research"),
+    # Plans the build and hands it out: how the coder works, the stack, the design system, and
+    # acceptance checks QA can turn into tests.
+    "vanguard": ("coding-companion", "docs-lookup", "laravel", "static-web", "design-md", "automated-testing"),
+    # Writes DESIGN.md and builds what it styles; images through ComfyUI, 3D through Blender.
+    "pixel": ("design-md", "static-web", "laravel", "docs-lookup", "comfy", "blender-mcp"),
+    # Builds: long scaffolds, the stack, keeps the tests green, commits cleanly; Unity through MCP.
+    "pulse": ("coding-companion", "static-web", "laravel", "docs-lookup", "automated-testing", "design-md", "commit-style", "unity-mcp"),
+    # Proves it works with tests it writes once and re-runs, and checks the obvious security holes.
+    "aegis": ("automated-testing", "security-checks", "laravel", "static-web", "docs-lookup", "design-md"),
+    # Sets up and ships the environment: the stack, containers, secrets and release hygiene.
+    "forge": ("laravel", "static-web", "docker", "docs-lookup", "security-checks", "commit-style"),
+    # Drafts the legal pages from the facts of this product and current regulations.
+    "lex": ("legal-docs", "web-research"),
+    # Writes the copy, the metadata and the launch; edits Blade views when the copy lives there.
+    "blaze": ("seo-copy", "web-research", "laravel"),
+}
+ESSENTIAL_SKILLS: frozenset[tuple[str, str]] = _pairs(SKILL_BUNDLES)
+
+# What the Cat Crew chat (the orchestrator) can read: who it is, current facts, and the honest
+# answer about home devices. Never stored in agent_skills (Cat Crew is not an agent).
+CREW_SKILLS: tuple[str, ...] = ("catcrew-self", "web-research", "home-lan")
 
 
 def essential_agents_for_skill(slug: str) -> frozenset[str]:
-    """Cat ids for which playbook ``slug`` is essential (empty: it is optional everywhere)."""
+    """Cat ids whose bundle holds playbook ``slug`` (empty: it is in no cat's bundle)."""
     key = str(slug or "").strip().lower()
     return frozenset(bot for bot, name in ESSENTIAL_SKILLS if name == key)
 
 
 def essential_skills_for_agent(bot_id: str) -> tuple[str, ...]:
     return tuple(sorted(slug for bot, slug in ESSENTIAL_SKILLS if bot == str(bot_id or "").strip()))
+
+
+def bundled_skill_slugs() -> frozenset[str]:
+    """Every playbook some bundle (a cat's or Cat Crew's) already places."""
+    return frozenset(slug for _bot, slug in ESSENTIAL_SKILLS) | frozenset(CREW_SKILLS)

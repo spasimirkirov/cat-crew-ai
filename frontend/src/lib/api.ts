@@ -170,7 +170,7 @@ export const api = {
     list: (refresh = false) => get<Skill[]>(`/api/skills${refresh ? "?refresh=true" : ""}`),
     proposals: () => get<Skill[]>("/api/skills/proposals"),
     get: (id: string) => get<Skill>(`/api/skills/${enc(id)}`),
-    create: (b: { name: string; description: string; body: string }) => post<Skill>("/api/skills", b),
+    create: (b: { name: string; description: string; body: string; target_roles?: string }) => post<Skill>("/api/skills", b),
     importFromUrl: (url: string) => post<{ message: string; skills: Skill[] }>("/api/skills/import", { url }),
     remove: (id: string) => del(`/api/skills/${enc(id)}`),
     assign: (id: string, agentIds: string[]) => put<Skill>(`/api/skills/${enc(id)}/assignments`, { agent_ids: agentIds }),

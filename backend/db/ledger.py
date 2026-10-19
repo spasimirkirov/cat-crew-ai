@@ -885,6 +885,8 @@ def sync_skills_from_disk() -> int:
             name=skill.name,
             description=skill.description,
             playbook_path=str(skill.path),
+            # A playbook's own ``target_roles`` says which cats it is for (role_tools.place_extra_skills).
+            target_roles=",".join(skill.target_roles) or None,
         )
         count += 1
     return count

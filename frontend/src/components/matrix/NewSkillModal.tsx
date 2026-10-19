@@ -18,6 +18,7 @@ export function NewSkillModal({ onCreated, onClose }: Props) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [body, setBody] = useState("");
+  const [targets, setTargets] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ready = name.trim().length > 0 && !busy;
@@ -28,7 +29,7 @@ export function NewSkillModal({ onCreated, onClose }: Props) {
     setBusy(true);
     setError(null);
     try {
-      onCreated(await api.skills.create({ name: name.trim(), description: description.trim(), body }));
+      onCreated(await api.skills.create({ name: name.trim(), description: description.trim(), body, target_roles: targets.trim() }));
     } catch (err) {
       setError(errorText(err));
       setBusy(false);
@@ -69,6 +70,18 @@ export function NewSkillModal({ onCreated, onClose }: Props) {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="One line: when should a cat reach for this playbook?"
+          />
+        </div>
+        <div>
+          <label className="label" htmlFor={`${formId}-targets`}>
+            For which cats (optional)
+          </label>
+          <input
+            id={`${formId}-targets`}
+            className="input"
+            value={targets}
+            onChange={(e) => setTargets(e.target.value)}
+            placeholder="Cat names or roles, e.g. pulse, qa. Empty: every cat."
           />
         </div>
         <div>

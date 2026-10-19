@@ -20,8 +20,6 @@ import { useStore } from "../state/store";
 // Closures (not `api.skills` itself) so every call resolves the method at call time.
 const skillsApi: MatrixApi<Skill> = {
   list: () => api.skills.list(),
-  assign: (id, agentIds) => api.skills.assign(id, agentIds),
-  setGlobal: (id, on) => api.skills.setGlobal(id, on),
 };
 
 type Filter = "all" | SkillType;
@@ -37,7 +35,7 @@ type ModalKind = "new" | "import" | null;
 
 export function SkillsPage() {
   const agents = useMatrixAgents();
-  const { items, loading, loadError, actionError, pending, reload, toggleAgent, toggleGlobal, dismissError } = useAssignmentMatrix(skillsApi);
+  const { items, loading, loadError, reload } = useAssignmentMatrix(skillsApi);
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -101,7 +99,7 @@ export function SkillsPage() {
     <div className="flex h-full flex-col">
       <PageHeader
         title="Skills"
-        subtitle="Playbooks that teach the cats how to work"
+        subtitle="Playbooks each cat ships with. A skill you add goes to the cats its target roles name, or to every cat."
         actions={
           <>
             <button className="btn" onClick={() => setModal("import")}>
@@ -124,16 +122,6 @@ export function SkillsPage() {
             <FontAwesomeIcon icon={faCircleCheck} />
             <span className="min-w-0 flex-1">{notice}</span>
             <button className="btn btn-ghost btn-sm" onClick={() => setNotice(null)} aria-label="Dismiss message">
-              <FontAwesomeIcon icon={faXmark} />
-            </button>
-          </div>
-        )}
-        {actionError && (
-          <div className="flex items-start gap-2">
-            <div className="min-w-0 flex-1">
-              <ErrorNote message={actionError} />
-            </div>
-            <button className="btn btn-ghost btn-sm" onClick={dismissError} aria-label="Dismiss error">
               <FontAwesomeIcon icon={faXmark} />
             </button>
           </div>
@@ -195,10 +183,7 @@ export function SkillsPage() {
               agents={agents}
               columnLabel="Skill"
               selectedId={openId}
-              pendingIds={pending}
               onOpen={setOpenId}
-              onToggleAgent={toggleAgent}
-              onToggleGlobal={toggleGlobal}
             />
           )}
         </div>

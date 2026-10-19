@@ -1,11 +1,10 @@
-import { faCheck, faGlobe, faLock } from "@fortawesome/free-solid-svg-icons";
+import { faCheck, faGlobe } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
 import type { Agent } from "../../lib/types";
 import { Avatar } from "../Avatar";
-import { Toggle } from "../Ui";
 
 export interface MatrixRow {
   id: string;
@@ -13,7 +12,7 @@ export interface MatrixRow {
   description: string;
   is_global: boolean;
   agent_ids: string[];
-  /** Cats that can never lose this row (an essential tool): shown on with a lock, not toggleable. */
+  /** Cats whose built-in bundle holds this row. */
   locked_agent_ids?: string[];
   /** Small chip(s) next to the name (skill type). */
   badge?: ReactNode;
@@ -27,21 +26,17 @@ interface Props {
   /** Header of the sticky first column: "Skill" / "Tool". */
   columnLabel: string;
   selectedId?: string | null;
-  pendingIds: ReadonlySet<string>;
   onOpen: (id: string) => void;
-  onToggleAgent: (rowId: string, agentId: string) => void;
-  onToggleGlobal: (rowId: string, on: boolean) => void;
 }
 
-const GLOBAL_HINT = "Global: attached to every cat";
-const ESSENTIAL_HINT = "Essential for this cat: always on";
 const STICKY_BG = "bg-bg group-hover:bg-[#141824]";
 
 /**
- * Rows x agents grid shared by Skills and Tools. The scroll container is the caller's; the header row and
- * the first column stay pinned while the grid scrolls in both directions.
+ * Rows x cats grid shared by Skills and Tools: who has what. Read-only: each cat's bundle is built in, and a
+ * skill or tool the user adds is placed by the backend. The scroll container is the caller's; the header row
+ * and the first column stay pinned while the grid scrolls in both directions.
  */
-export function AssignmentMatrix({ rows, agents, columnLabel, selectedId, pendingIds, onOpen, onToggleAgent, onToggleGlobal }: Props) {
+export function AssignmentMatrix({ rows, agents, columnLabel, selectedId, onOpen }: Props) {
   return (
     <table className="w-max min-w-full border-separate border-spacing-0 text-sm">
       <thead>
@@ -77,70 +72,62 @@ export function AssignmentMatrix({ rows, agents, columnLabel, selectedId, pendin
         </tr>
       </thead>
       <tbody>
-        {rows.map((row) => {
-          const busy = pendingIds.has(row.id);
-          return (
-            <tr
-              key={row.id}
-              onClick={() => onOpen(row.id)}
-              aria-busy={busy || undefined}
-              className={clsx("group cursor-pointer transition-colors hover:bg-[#141824]", selectedId === row.id && "bg-cyan/[0.05]")}
+        {rows.map((row) => (
+          <tr
+            key={row.id}
+            onClick={() => onOpen(row.id)}
+            className={clsx("group cursor-pointer transition-colors hover:bg-[#141824]", selectedId === row.id && "bg-cyan/[0.05]")}
+          >
+            <th
+              scope="row"
+              className={clsx(
+                "sticky left-0 z-10 w-[360px] min-w-[360px] max-w-[360px] border-b border-r border-line px-4 py-2.5 text-left font-normal",
+                selectedId === row.id ? "bg-[#101a26]" : STICKY_BG,
+              )}
             >
-              <th
-                scope="row"
-                className={clsx(
-                  "sticky left-0 z-10 w-[360px] min-w-[360px] max-w-[360px] border-b border-r border-line px-4 py-2.5 text-left font-normal",
-                  selectedId === row.id ? "bg-[#101a26]" : STICKY_BG,
-                )}
-              >
-                <button type="button" className="block w-full rounded-md text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan/60" aria-label={`Open ${row.name}`}>
-                  <span className="flex items-center gap-2">
-                    <span className="truncate text-sm font-medium text-ink">{row.name}</span>
-                    {row.badge}
-                  </span>
-                  {row.mono && <span className="mt-0.5 block truncate font-mono text-[11px] text-cyan/80" title={row.mono}>{row.mono}</span>}
-                  <span className="mt-0.5 line-clamp-1 text-xs text-muted" title={row.description}>
-                    {row.description || "No description"}
-                  </span>
-                </button>
-              </th>
-              <td className="border-b border-line px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
-                <Toggle on={row.is_global} disabled={busy} label={`Make ${row.name} global`} onChange={(on) => onToggleGlobal(row.id, on)} />
-              </td>
-              {agents.map((a) => {
-                const essential = !row.is_global && (row.locked_agent_ids ?? []).includes(a.id);
-                const locked = row.is_global || essential;
-                const on = locked || row.agent_ids.includes(a.id);
-                return (
-                  <td key={a.id} className="border-b border-line px-1.5 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
-                    <span title={essential ? ESSENTIAL_HINT : locked ? GLOBAL_HINT : undefined} className={clsx("inline-flex", locked && "cursor-not-allowed")}>
-                      <button
-                        type="button"
-                        role="checkbox"
-                        aria-checked={on}
-                        aria-label={essential ? `${row.name} is essential for ${a.name} and always on` : `Assign ${row.name} to ${a.name}`}
-                        disabled={locked || busy}
-                        onClick={() => onToggleAgent(row.id, a.id)}
-                        className={clsx(
-                          "flex h-[22px] w-[22px] items-center justify-center rounded-md border text-[11px] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan/60",
-                          locked
-                            ? "pointer-events-none border-emerald/25 bg-emerald/10 text-emerald/60"
-                            : on
-                              ? "border-cyan/60 bg-cyan/20 text-cyan hover:bg-cyan/30"
-                              : "border-line bg-white/[0.02] text-transparent hover:border-[#3a405a] hover:bg-white/[0.06]",
-                          busy && !locked && "opacity-50",
-                        )}
-                      >
-                        <FontAwesomeIcon icon={essential ? faLock : faCheck} />
-                      </button>
+              <button type="button" className="block w-full rounded-md text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan/60" aria-label={`Open ${row.name}`}>
+                <span className="flex items-center gap-2">
+                  <span className="truncate text-sm font-medium text-ink">{row.name}</span>
+                  {row.badge}
+                </span>
+                {row.mono && <span className="mt-0.5 block truncate font-mono text-[11px] text-cyan/80" title={row.mono}>{row.mono}</span>}
+                <span className="mt-0.5 line-clamp-1 text-xs text-muted" title={row.description}>
+                  {row.description || "No description"}
+                </span>
+              </button>
+            </th>
+            <td className="border-b border-line px-2 py-2.5 text-center">
+              {row.is_global && (
+                <span role="img" aria-label={`${row.name} is global`} title="Global: every cat has it" className="text-emerald">
+                  <FontAwesomeIcon icon={faGlobe} />
+                </span>
+              )}
+            </td>
+            {agents.map((a) => {
+              const bundled = (row.locked_agent_ids ?? []).includes(a.id);
+              const has = row.is_global || bundled || row.agent_ids.includes(a.id);
+              const hint = bundled ? "Built into this cat's bundle" : row.is_global ? "Global: every cat has it" : "Added for this cat";
+              return (
+                <td key={a.id} className="border-b border-line px-1.5 py-2.5 text-center">
+                  {has && (
+                    <span
+                      role="img"
+                      aria-label={`${a.name} has ${row.name}`}
+                      title={hint}
+                      className={clsx(
+                        "inline-flex h-[22px] w-[22px] items-center justify-center rounded-md border text-[11px]",
+                        bundled || !row.is_global ? "border-cyan/50 bg-cyan/15 text-cyan" : "border-emerald/25 bg-emerald/10 text-emerald/60",
+                      )}
+                    >
+                      <FontAwesomeIcon icon={faCheck} />
                     </span>
-                  </td>
-                );
-              })}
-              <td className="border-b border-line p-0" />
-            </tr>
-          );
-        })}
+                  )}
+                </td>
+              );
+            })}
+            <td className="border-b border-line p-0" />
+          </tr>
+        ))}
       </tbody>
     </table>
   );

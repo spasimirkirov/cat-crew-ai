@@ -106,10 +106,10 @@ export function SkillDrawer({ skill, agents, onClose, onDeleted }: Props) {
       </Field>
 
       {essentialFor.length > 0 && (
-        <Field label="Always on">
+        <Field label="Built in">
           <span className="flex flex-wrap items-center gap-1.5 text-sm">
             <FontAwesomeIcon icon={faLock} className="text-muted" />
-            Essential for {essentialFor.map((a) => a.name).join(", ")}: it cannot be unassigned.
+            In the bundle of {essentialFor.map((a) => a.name).join(", ")}.
           </span>
         </Field>
       )}

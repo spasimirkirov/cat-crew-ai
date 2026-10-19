@@ -141,6 +141,26 @@ _LEGAL_KEYWORDS = (
     "liability",
     "trademark",
     "copyright",
+    "cookie",
+    "поверителност",
+    "общи условия",
+    "лични данни",
+)
+# Blaze joins after the plan when the brief cares about how the product is found and sold, so the
+# copy and metadata (COPY.md) exist before the developer builds the pages.
+_MARKETING_KEYWORDS = (
+    "seo",
+    "marketing",
+    "campaign",
+    "social media",
+    "newsletter",
+    "press release",
+    "copywriting",
+    "brand voice",
+    "go-to-market",
+    "маркетинг",
+    "реклама",
+    "кампания",
 )
 _BUDGET_KEYWORDS = (
     "budget",
@@ -190,7 +210,8 @@ _PRIOR_TOTAL_CAP = 4_500
 _HANDOFF_NOTE = (
     "Only short excerpts of earlier phases are shown above. The full outputs are files in the "
     "project folder (BLUEPRINT.md, ARCHITECTURE.md, TASKS.md, BUILD_STATUS.md, "
-    "PROJECT_STRUCTURE.md, when they exist): read_file one only if you need the detail."
+    "PROJECT_STRUCTURE.md, DESIGN.md, COPY.md, legal/, when they exist): read_file one only if "
+    "you need the detail."
 )
 
 
@@ -267,6 +288,10 @@ def _spontaneous_bots(registry: Registry, project: Project, brief: str) -> list[
         bot = _bot_for_role(registry, project, "legal")
         if bot:
             extra.append(bot)
+    if any(word in blob for word in _MARKETING_KEYWORDS):
+        bot = _bot_for_role(registry, project, "marketing")
+        if bot:
+            extra.append(bot)
     if any(word in blob for word in _BUDGET_KEYWORDS):
         bot = _bot_for_role(registry, project, "accountant")
         if bot:
@@ -281,6 +306,8 @@ def _phase_task_body(phase: str, brief: str) -> str:
             "Turn this into a structured task blueprint for the team: goals, "
             "constraints, target stack, and what each role (Vanguard, DevOps, "
             "Developer, Designer, QA) specifically needs to know before starting. "
+            "Write it to BLUEPRINT.md at the project root (read_skill task-blueprint for the "
+            "format): the next phases read that file, not your reply. "
             "Do not design the system yourself — that is Vanguard's job next."
         )
     if phase == "architecture":

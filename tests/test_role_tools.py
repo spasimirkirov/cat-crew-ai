@@ -1,4 +1,4 @@
-"""Role tools are registered at start-up and respect what the user unassigned."""
+"""Role tools are registered at start-up and every cat always gets its whole bundle."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import pytest
 
 from backend.db import ledger as db
 from backend.platform import role_tools
+from backend.platform.essentials import BROWSER_ALL, BROWSER_READ, ESSENTIAL_ROLE_TOOLS
 
 BROWSER = [slug for slug, _ in role_tools._BROWSER_TOOLS]
 
@@ -20,53 +21,41 @@ def home(isolated):
     return isolated
 
 
-def test_fresh_install_gives_aegis_and_pixel_the_browser_set(home):
+def test_fresh_install_gives_every_cat_its_bundle(home):
     role_tools.ensure_role_tools()
+    for bot_id, slug in ESSENTIAL_ROLE_TOOLS:
+        assert slug in _slugs(bot_id), (bot_id, slug)
     assert set(BROWSER) <= _slugs("aegis")
     assert set(BROWSER) <= _slugs("pixel")
     assert {"http_endpoint_audit", "run_test_suite"} <= _slugs("aegis")
+    assert "seo_page_audit" in _slugs("blaze") and "data_collection_scan" in _slugs("lex")
     assert "browser_click" not in _slugs("pulse")
-    assert "browser_click" not in _slugs("lex")
+    assert "browser_click" not in _slugs("lex")  # Lex only reads pages
     assert db.get_meta("role_tools_version") == str(role_tools.ROLE_TOOLS_VERSION)
     assert not (home / "catcrew_home").exists()  # no stray files outside the database
 
 
-def test_a_tool_the_user_removed_is_not_added_back(home):
+def test_a_removed_bundle_tool_comes_back_on_the_next_start(home):
     role_tools.ensure_role_tools()
-    tool = db.get_tool_by_slug("browser_click")
-    db.unassign_tool("pixel", tool["id"])
-    role_tools.ensure_role_tools()
-    role_tools.ensure_role_tools()
-    assert "browser_click" not in _slugs("pixel")
-    assert "browser_click" in _slugs("aegis")
-
-
-def test_existing_install_is_upgraded_once(home):
-    # An install that ran the old seed by hand: Aegis has the 5 original tools, no marker.
-    old = ["browser_navigate", "browser_click", "browser_type", "browser_select_option", "browser_take_screenshot"]
-    for bot, slug, fn in role_tools.ROLE_TOOLS:
-        if bot == "aegis" and slug in old:
-            role_tools.register_tool_function(slug, fn, type="system")
-            db.assign_tool_by_slug("aegis", slug)
-    # The user's choice: an *optional* tool switched off (essential ones cannot be, see
-    # tests/test_essential_tools.py).
-    db.unassign_tool("aegis", db.get_tool_by_slug("browser_select_option")["id"])
-
-    role_tools.ensure_role_tools()
-    assert set(BROWSER) - {"browser_select_option"} <= _slugs("aegis")
-    assert "browser_select_option" not in _slugs("aegis")
-    assert set(BROWSER) <= _slugs("pixel")
-
     db.unassign_tool("pixel", db.get_tool_by_slug("browser_click")["id"])
+    db.unassign_tool("forge", db.get_tool_by_slug("vps_health_check")["id"])
     role_tools.ensure_role_tools()
-    assert "browser_click" not in _slugs("pixel")
+    assert "browser_click" in _slugs("pixel")
+    assert "vps_health_check" in _slugs("forge")
 
 
-def test_force_reassigns_everything(home):
-    role_tools.ensure_role_tools()
-    db.unassign_tool("aegis", db.get_tool_by_slug("browser_click")["id"])
-    role_tools.ensure_role_tools(force=True)
-    assert "browser_click" in _slugs("aegis")
+def test_role_tools_are_exactly_the_bundles():
+    assert {(bot, slug) for bot, slug, _ in role_tools.ROLE_TOOLS} == set(ESSENTIAL_ROLE_TOOLS)
+    bundled = {slug for _, slug in ESSENTIAL_ROLE_TOOLS}
+    assert set(role_tools.FUNCTIONS) == bundled, "every registry function belongs to some bundle"
+    assert set(BROWSER) == set(BROWSER_ALL) and set(BROWSER_READ) <= set(BROWSER_ALL)
+
+
+def test_every_bundle_tool_is_classified_for_the_harness():
+    from backend.harness import tool_meta
+
+    for slug in role_tools.FUNCTIONS:
+        assert tool_meta.is_known(slug), slug
 
 
 def test_registered_schemas_are_callable_by_name(home):
@@ -92,17 +81,21 @@ def test_a_cats_turn_receives_and_can_run_its_registry_tools(home):
 
     deferred.restore_loaded_tools([], {})
     register_agent_tools("lex")
-    assert not {s["function"]["name"] for s in deferred.extra_tool_schemas()} & set(BROWSER)
+    offered = {s["function"]["name"] for s in deferred.extra_tool_schemas()}
+    assert set(BROWSER_READ) <= offered and "data_collection_scan" in offered
+    assert not offered & {"browser_click", "browser_type"}
+    deferred.restore_loaded_tools([], {})  # loaded tools are process-wide: leave none for the next test
 
 
-def test_version_2_install_gets_browser_look_once(home):
+def test_an_extra_tool_already_placed_is_left_alone(home):
     role_tools.ensure_role_tools()
-    tool = db.get_tool_by_slug("browser_look")
-    for bot in ("aegis", "pixel"):
-        db.unassign_tool(bot, tool["id"])
-    db.set_meta("role_tools_version", "2")  # what an install from before Vision has
-    role_tools.ensure_role_tools()
-    assert "browser_look" in _slugs("aegis") and "browser_look" in _slugs("pixel")
-    db.unassign_tool("pixel", tool["id"])
-    role_tools.ensure_role_tools()
-    assert "browser_look" not in _slugs("pixel")  # the user's removal sticks
+    from backend.platform.tool_registry import register_tool_function
+    from backend.tool_functions import qa_tools
+
+    tool_id = register_tool_function("close_all_sessions", qa_tools.close_all_sessions, type="system")
+    db.assign_tool("aegis", tool_id)
+    role_tools.place_extra_tools()
+    assert not db.get_tool_by_slug("close_all_sessions")["is_global"]
+    db.unassign_tool("aegis", tool_id)
+    role_tools.place_extra_tools()
+    assert db.get_tool_by_slug("close_all_sessions")["is_global"]

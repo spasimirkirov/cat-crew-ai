@@ -1,4 +1,4 @@
-"""Essential tools are always on; only the optional ones are the user's to toggle."""
+"""Each cat's bundle (platform/essentials.py) is always on; the user does not pick it."""
 
 from __future__ import annotations
 
@@ -49,12 +49,11 @@ def _slugs(agent: str) -> set[str]:
     return {t["slug"] for t in db.tools_for_agent(agent)}
 
 
-def test_startup_reattaches_an_essential_tool_but_not_an_optional_one(home) -> None:
-    db.unassign_tool("aegis", db.get_tool_by_slug("browser_click")["id"])  # essential for Aegis
-    db.unassign_tool("aegis", db.get_tool_by_slug("browser_look")["id"])  # optional
+def test_startup_reattaches_every_bundle_tool(home) -> None:
+    db.unassign_tool("aegis", db.get_tool_by_slug("browser_click")["id"])
+    db.unassign_tool("aegis", db.get_tool_by_slug("browser_look")["id"])
     role_tools.ensure_role_tools()
-    assert "browser_click" in _slugs("aegis")
-    assert "browser_look" not in _slugs("aegis")
+    assert {"browser_click", "browser_look"} <= _slugs("aegis")
 
 
 def test_essential_tools_are_bound_for_the_turn_even_without_an_assignment_row(home) -> None:
@@ -67,8 +66,9 @@ def test_essential_tools_are_bound_for_the_turn_even_without_an_assignment_row(h
 def test_essentials_reference_registered_tools(home) -> None:
     for bot_id, slug in ESSENTIAL_ROLE_TOOLS:
         assert db.get_tool_by_slug(slug) is not None, (bot_id, slug)
-    assert essential_slugs_for_agent("pulse") == ("git_diff_inspector", "write_file_patch")
-    assert essential_agents_for_slug("browser_close") == {"aegis", "pixel"}
+    assert essential_slugs_for_agent("pulse") == ("git_diff_inspector", "http_endpoint_audit", "read_code_ast", "write_file_patch")
+    assert essential_agents_for_slug("browser_close") == {"aegis", "pixel", "blaze", "lex"}
+    assert essential_slugs_for_agent("cipher") == ()
 
 
 @pytest.fixture
@@ -88,10 +88,14 @@ def test_api_marks_essentials_and_refuses_to_unassign_or_delete_them(client) -> 
     assert res.status_code == 200 and "pulse" in res.json()["agent_ids"]  # still on
     assert client.delete(f"/api/tools/{tool['id']}").status_code == 409
 
-    optional = _tool(client, "read_code_ast")
-    assert optional["locked_agent_ids"] == []
-    res = client.put(f"/api/tools/{optional['id']}/assignments", json={"agent_ids": []})
-    assert res.json()["agent_ids"] == []  # optional ones toggle freely
+
+def test_a_registered_tool_in_no_bundle_goes_to_every_cat(client) -> None:
+    res = client.post("/api/tools", json={"handler": "backend.tool_functions.qa_tools:close_all_sessions"})
+    assert res.status_code == 201, res.text
+    extra = res.json()
+    assert extra["locked_agent_ids"] == []
+    assert extra["is_global"] is True
+    assert "close_all_sessions" in _slugs("lex")
 
 
 def test_a_bound_registry_tool_actually_runs(home) -> None:
@@ -135,23 +139,22 @@ def test_every_essential_skill_is_a_bundled_playbook() -> None:
         assert find_skill(slug) is not None, (bot_id, slug)
 
 
-def test_startup_reattaches_an_essential_skill_but_not_an_optional_one(home) -> None:
+def test_startup_reattaches_every_bundle_skill_and_leaves_unneeded_ones_off(home) -> None:
     db.sync_skills_from_disk()
     role_tools.ensure_essential_skills()
-    assert {"coding-companion", "static-web"} <= _skill_slugs("pulse")
-    db.assign_skill_by_slug("pulse", "commit-style")  # optional
-    db.unassign_skill("pulse", db.get_skill_by_slug("static-web")["id"])  # essential
-    db.unassign_skill("pulse", db.get_skill_by_slug("commit-style")["id"])
+    assert {"coding-companion", "static-web", "commit-style"} <= _skill_slugs("pulse")
+    db.unassign_skill("pulse", db.get_skill_by_slug("static-web")["id"])
     role_tools.ensure_essential_skills()
     assert "static-web" in _skill_slugs("pulse")
-    assert "commit-style" not in _skill_slugs("pulse")
+    # A bundled playbook no cat needs stays off, and is not made global either.
+    assert "desktop" not in _skill_slugs("pulse")
+    assert not db.get_skill_by_slug("desktop")["is_global"]
 
 
 def test_an_essential_skill_is_readable_and_indexed_even_without_its_row(home) -> None:
     from backend.agent_context import read_skill, skills_prompt_index
 
     db.sync_skills_from_disk()
-    db.assign_skill_by_slug("pulse", "commit-style")  # so the catalog is not empty for Pulse
     assert "static-web" not in _skill_slugs("pulse")
     assert read_skill("static-web", agent_id="pulse").startswith("# static-web")
     assert "not assigned to you" in read_skill("docker", agent_id="pulse")
@@ -160,14 +163,42 @@ def test_an_essential_skill_is_readable_and_indexed_even_without_its_row(home) -
     assert "- docker:" not in index
 
 
+def test_cat_crew_reads_its_own_playbooks_without_agent_rows(home) -> None:
+    from backend.agent_context import read_skill, skills_prompt_index
+    from backend.api.views import ROOM_ID
+
+    db.sync_skills_from_disk()
+    assert read_skill("catcrew-self", agent_id=ROOM_ID).startswith("# catcrew-self")
+    assert "not assigned to you" in read_skill("laravel", agent_id=ROOM_ID)
+    assert "- web-research:" in skills_prompt_index(ROOM_ID)
+
+
 def test_skills_api_marks_essentials_and_refuses_to_unassign_them(client) -> None:
     db.sync_skills_from_disk()
     skills = {s["name"]: s for s in client.get("/api/skills").json()}
     web = skills["static-web"]
-    assert web["locked_agent_ids"] == ["pixel", "pulse"]
+    assert web["locked_agent_ids"] == ["aegis", "forge", "pixel", "pulse", "vanguard"]
     res = client.put(f"/api/skills/{web['id']}/assignments", json={"agent_ids": []})
     assert res.status_code == 200 and {"pixel", "pulse"} <= set(res.json()["agent_ids"])
-    docker = skills["docker"]
-    assert docker["locked_agent_ids"] == []
-    res = client.put(f"/api/skills/{docker['id']}/assignments", json={"agent_ids": []})
-    assert res.json()["agent_ids"] == []
+    assert skills["docker"]["locked_agent_ids"] == ["forge"]
+    assert skills["desktop"]["locked_agent_ids"] == []
+
+
+def test_a_new_skill_goes_to_the_cats_it_targets_or_to_every_cat(client) -> None:
+    db.sync_skills_from_disk()
+    targeted = client.post("/api/skills", json={"name": "Stripe checkout", "body": "x", "target_roles": "developer, qa"})
+    assert targeted.status_code == 201, targeted.text
+    assert sorted(targeted.json()["agent_ids"]) == ["aegis", "pulse"]
+    assert targeted.json()["is_global"] is False
+    anyone = client.post("/api/skills", json={"name": "House style", "body": "x"})
+    assert anyone.json()["is_global"] is True
+
+
+def test_every_cat_has_a_bundle_and_every_bundle_playbook_exists() -> None:
+    from backend.platform.catcrew import CATCREW_MEMBERS
+    from backend.platform.essentials import CREW_SKILLS, SKILL_BUNDLES
+    from backend.agent_context import find_skill
+
+    assert set(SKILL_BUNDLES) == {m["id"] for m in CATCREW_MEMBERS}
+    for slug in CREW_SKILLS:
+        assert find_skill(slug) is not None, slug

@@ -19,7 +19,7 @@ function renderPage() {
 }
 const mockList = (list: Tool[] = [WRITE, AUDIT]) => vi.spyOn(api.tools, "list").mockResolvedValue(structuredClone(list));
 const rowOf = (name: string) => screen.getByRole("button", { name: `Open ${name}` }).closest("tr") as HTMLElement;
-const cell = (toolName: string, agentName: string) => screen.getByRole("checkbox", { name: `Assign ${toolName} to ${agentName}` });
+const has = (toolName: string, agentName: string) => screen.queryByRole("img", { name: `${agentName} has ${toolName}` });
 
 const AVAILABLE: AvailableTool[] = [
   { handler: "backend.tool_functions.pulse_tools:write_file", name: "write_file", description: "Write a file", registered: true },
@@ -38,22 +38,16 @@ afterEach(() => {
 
 describe("ToolsPage", () => {
   it("never shows a Cat Crew column, whichever id the orchestrator has in the store", async () => {
-    // Regression: "Could not update browser_click: Unknown agent 'chief'".
     seedStore([...AGENTS, agent("crew", { name: "Cat Crew", role: "room" }), agent("chief", { name: "Chief", role: "chief" })]);
-    const assign = vi.spyOn(api.tools, "assign").mockResolvedValue({ ...WRITE, agent_ids: ["pulse", "pixel"] });
     mockList();
     renderPage();
     await screen.findByRole("button", { name: "Open write_file" });
     const headers = screen.getAllByRole("columnheader").map((h) => h.textContent ?? "");
     expect(headers.some((h) => /cat crew|chief/i.test(h))).toBe(false);
-    expect(screen.queryByRole("checkbox", { name: /to Cat Crew|to Chief/ })).toBeNull();
-    fireEvent.click(cell("write_file", "Pixel"));
-    await waitFor(() => expect(assign).toHaveBeenCalledWith("t_write", ["pulse", "pixel"]));
-    expect(assign.mock.calls[0][1]).not.toContain("chief");
-    expect(assign.mock.calls[0][1]).not.toContain("crew");
+    expect(screen.queryByRole("img", { name: /^(Cat Crew|Chief) has/ })).toBeNull();
   });
 
-  it("renders tool rows with handler paths and agent columns", async () => {
+  it("renders tool rows with handler paths and shows which cats have each one, read-only", async () => {
     mockList();
     renderPage();
     expect(await screen.findByRole("button", { name: "Open write_file" })).toBeInTheDocument();
@@ -63,44 +57,21 @@ describe("ToolsPage", () => {
 
     const headers = screen.getAllByRole("columnheader").map((h) => h.querySelector("span.truncate")?.textContent ?? h.textContent?.trim());
     expect(headers.slice(0, 6)).toEqual(["Tool", "Global", "Pulse", "Aegis", "Pixel", "Scout"]);
-    expect(cell("write_file", "Pulse")).toHaveAttribute("aria-checked", "true");
-    expect(cell("write_file", "Aegis")).toHaveAttribute("aria-checked", "false");
+    expect(has("write_file", "Pulse")).toBeInTheDocument();
+    expect(has("write_file", "Aegis")).toBeNull();
+    // Nothing to toggle: the bundles are built in.
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.queryByRole("switch")).toBeNull();
   });
 
-  it("toggling a cell calls assign with the full list", async () => {
-    mockList();
-    const assign = vi.spyOn(api.tools, "assign").mockResolvedValue({ ...WRITE, agent_ids: ["pulse", "pixel"] });
-    renderPage();
-    await screen.findByRole("button", { name: "Open write_file" });
-    fireEvent.click(cell("write_file", "Pixel"));
-    await waitFor(() => expect(assign).toHaveBeenCalledWith("t_write", ["pulse", "pixel"]));
-    await waitFor(() => expect(cell("write_file", "Pixel")).not.toBeDisabled());
-    expect(cell("write_file", "Pixel")).toHaveAttribute("aria-checked", "true");
-  });
-
-  it("rolls back with an inline error when assign fails", async () => {
-    mockList();
-    vi.spyOn(api.tools, "assign").mockRejectedValue(new ApiError(404, "Unknown tool"));
-    renderPage();
-    await screen.findByRole("button", { name: "Open write_file" });
-    fireEvent.click(cell("write_file", "Aegis"));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Could not update write_file: Unknown tool");
-    expect(cell("write_file", "Aegis")).toHaveAttribute("aria-checked", "false");
-  });
-
-  it("the Global toggle locks every agent cell of the row", async () => {
-    mockList();
-    const setGlobal = vi.spyOn(api.tools, "setGlobal").mockResolvedValue({ ...AUDIT, is_global: true });
+  it("a global tool shows on every cat", async () => {
+    mockList([WRITE, { ...AUDIT, is_global: true }]);
     renderPage();
     await screen.findByRole("button", { name: "Open http_endpoint_audit" });
-    fireEvent.click(screen.getByRole("switch", { name: "Make http_endpoint_audit global" }));
-    await waitFor(() => expect(setGlobal).toHaveBeenCalledWith("t_audit", true));
-    for (const name of ["Pulse", "Aegis", "Pixel", "Scout"]) {
-      await waitFor(() => expect(cell("http_endpoint_audit", name)).toBeDisabled());
-      expect(cell("http_endpoint_audit", name)).toHaveAttribute("aria-checked", "true");
-    }
-    expect(within(rowOf("http_endpoint_audit")).getAllByTitle("Global: attached to every cat")).toHaveLength(4);
-    expect(cell("write_file", "Pulse")).not.toBeDisabled();
+    expect(screen.getByRole("img", { name: "http_endpoint_audit is global" })).toBeInTheDocument();
+    for (const name of ["Pulse", "Aegis", "Pixel", "Scout"]) expect(has("http_endpoint_audit", name)).toBeInTheDocument();
+    expect(within(rowOf("http_endpoint_audit")).getAllByTitle("Global: every cat has it")).toHaveLength(5);
+    expect(has("write_file", "Pixel")).toBeNull();
   });
 
   it("searches by name, handler and description", async () => {
@@ -233,32 +204,23 @@ describe("ToolsPage", () => {
   });
 });
 
-describe("ToolsPage essential tools", () => {
-  it("shows an essential tool as locked for its cat, while optional ones still toggle", async () => {
+describe("ToolsPage bundle tools", () => {
+  it("marks a tool from a cat's bundle as built in", async () => {
     const PATCH = tool("t_patch", "write_file_patch", { agent_ids: ["pulse"], locked_agent_ids: ["pulse"] });
     mockList([PATCH, AUDIT]);
-    const assign = vi.spyOn(api.tools, "assign").mockResolvedValue({ ...AUDIT, agent_ids: ["aegis"] });
     renderPage();
-
-    const locked = await screen.findByRole("checkbox", { name: "write_file_patch is essential for Pulse and always on" });
-    expect(locked).toBeDisabled();
-    expect(locked).toHaveAttribute("aria-checked", "true");
-    fireEvent.click(locked);
-    expect(assign).not.toHaveBeenCalled();
-
-    // A cat the tool is not essential for can still be toggled.
-    expect(cell("write_file_patch", "Aegis")).not.toBeDisabled();
-    fireEvent.click(cell("http_endpoint_audit", "Aegis"));
-    await waitFor(() => expect(assign).toHaveBeenCalledWith("t_audit", ["aegis"]));
+    const mark = await screen.findByRole("img", { name: "Pulse has write_file_patch" });
+    expect(mark).toHaveAttribute("title", "Built into this cat's bundle");
+    expect(has("write_file_patch", "Aegis")).toBeNull();
   });
 
-  it("does not offer to delete an essential tool", async () => {
+  it("does not offer to delete a bundle tool", async () => {
     const PATCH = tool("t_patch", "write_file_patch", { agent_ids: ["pulse"], locked_agent_ids: ["pulse"] });
     mockList([PATCH]);
     vi.spyOn(api.tools, "get").mockResolvedValue(PATCH);
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Open write_file_patch" }));
-    expect(await screen.findByText(/Essential for Pulse: it cannot be deleted/)).toBeInTheDocument();
+    expect(await screen.findByText(/In the bundle of Pulse: it cannot be deleted/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Delete tool/ })).toBeNull();
   });
 });
