@@ -62,7 +62,8 @@ ESSENTIAL_BUILTINS: dict[str, tuple[str, ...]] = {
     "marketing": (*UNIVERSAL, *WRITE, *WEB, "image_search"),
     "designer": (*UNIVERSAL, *WRITE, *SHELL, *DOCS, "copy_path", "image_search"),
     "developer": (*UNIVERSAL, *WRITE, *SHELL, *DOCS, "scaffold_project", "copy_path", "move_path", "git_add", "git_log", "git_show"),
-    "devops": (*UNIVERSAL, *WRITE, *SHELL, *DOCS, "scaffold_project", "run_smoke_test", "git_add", "git_log", "git_show", "git_branch", "docker_info"),
+    # Forge owns releases: it commits, then pushes and publishes through its GitHub tools.
+    "devops": (*UNIVERSAL, *WRITE, *SHELL, *DOCS, "scaffold_project", "run_smoke_test", "git_add", "git_commit", "git_log", "git_show", "git_branch", "docker_info"),
     # QA writes the automated tests it re-runs on every check, so it needs to write files too.
     "qa": (*UNIVERSAL, *WRITE, *SHELL, *DOCS, "run_smoke_test", "browser_check", "git_log"),
 }
@@ -75,6 +76,11 @@ BROWSER_ALL = (
 )
 # Enough to open a page and read it as text.
 BROWSER_READ = ("browser_navigate", "browser_snapshot", "browser_close")
+# GitHub with the connector's token (backend/tool_functions/github_tools.py): Forge only.
+GITHUB = (
+    "github_status", "github_push", "github_create_branch", "github_create_pull_request",
+    "github_merge_pull_request", "github_create_release", "github_actions_runs", "github_run_workflow",
+)
 
 # Registry tools (backend/tool_functions/) per cat: (cat id, slug).
 ESSENTIAL_ROLE_TOOLS: frozenset[tuple[str, str]] = frozenset(
@@ -87,8 +93,9 @@ ESSENTIAL_ROLE_TOOLS: frozenset[tuple[str, str]] = frozenset(
         *(("pixel", slug) for slug in BROWSER_ALL),
         # Aegis drives the page, runs the suite and audits the endpoints.
         *(("aegis", slug) for slug in (*BROWSER_ALL, "browser_mcp_screenshot", "run_test_suite", "http_endpoint_audit")),
-        # Forge runs the environment and checks it after a deploy.
-        *(("forge", slug) for slug in ("execute_terminal_cmd", "docker_container_status", "vps_health_check", "http_endpoint_audit")),
+        # Forge runs the environment, deploys over SSH, checks it after a deploy, and ships through
+        # GitHub: branches, pull requests, merges, Actions and releases.
+        *(("forge", slug) for slug in ("execute_terminal_cmd", "docker_container_status", "vps_health_check", "http_endpoint_audit", "ssh_command", *GITHUB)),
         # Blaze reads the live copy and audits what search engines and share cards see.
         *(("blaze", slug) for slug in (*BROWSER_READ, "seo_page_audit")),
         # Lex grounds the privacy policy in what the code actually collects and the site shows.
@@ -132,11 +139,12 @@ SKILL_BUNDLES: dict[str, tuple[str, ...]] = {
     # Proves it works with tests it writes once and re-runs, and checks the obvious security holes.
     "aegis": ("automated-testing", "security-checks", "laravel", "static-web", "docs-lookup", "design-md"),
     # Sets up and ships the environment: the stack, containers, secrets and release hygiene.
-    "forge": ("laravel", "static-web", "docker", "docs-lookup", "security-checks", "commit-style"),
+    "forge": ("laravel", "static-web", "docker", "docs-lookup", "security-checks", "commit-style", "deploy", "github-release"),
     # Drafts the legal pages from the facts of this product and current regulations.
     "lex": ("legal-docs", "web-research"),
     # Writes the copy, the metadata and the launch; edits Blade views when the copy lives there.
-    "blaze": ("seo-copy", "web-research", "laravel"),
+    # Also prices the product: there is no accountant cat, so pricing briefs come to Blaze.
+    "blaze": ("seo-copy", "pricing", "web-research", "laravel"),
 }
 ESSENTIAL_SKILLS: frozenset[tuple[str, str]] = _pairs(SKILL_BUNDLES)
 

@@ -16,12 +16,12 @@ from __future__ import annotations
 from typing import Callable
 
 from backend.db import ledger as db
-from backend.platform.essentials import ESSENTIAL_ROLE_TOOLS, ESSENTIAL_SKILLS, bundled_skill_slugs
+from backend.platform.essentials import ESSENTIAL_ROLE_TOOLS, ESSENTIAL_SKILLS, GITHUB, bundled_skill_slugs
 from backend.platform.tool_registry import register_tool_function
-from backend.tool_functions import aegis_tools, blaze_tools, forge_tools, lead_tools, lex_tools, pulse_tools, qa_tools
+from backend.tool_functions import aegis_tools, blaze_tools, forge_tools, github_tools, lead_tools, lex_tools, pulse_tools, qa_tools
 
 # Kept so an install's database records which bundle generation it last saw.
-ROLE_TOOLS_VERSION = 5
+ROLE_TOOLS_VERSION = 6
 
 # Slug -> function for every registry tool a bundle may name. The slug is also the schema ``name``.
 _BROWSER_TOOLS: list[tuple[str, Callable[..., str]]] = [
@@ -44,6 +44,8 @@ FUNCTIONS: dict[str, Callable[..., str]] = {
     "execute_terminal_cmd": forge_tools.execute_terminal_cmd,
     "docker_container_status": forge_tools.docker_container_status,
     "vps_health_check": forge_tools.vps_health_check,
+    "ssh_command": forge_tools.ssh_command,
+    **{slug: getattr(github_tools, slug) for slug in GITHUB},
     "browser_mcp_screenshot": aegis_tools.browser_mcp_screenshot,
     "http_endpoint_audit": aegis_tools.http_endpoint_audit,
     "run_test_suite": aegis_tools.run_test_suite,

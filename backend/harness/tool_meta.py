@@ -102,6 +102,16 @@ TOOLS: dict[str, ToolMeta] = {
     "http_endpoint_audit": _read(untrusted=True, volatile=True),
     "seo_page_audit": _read(untrusted=True, volatile=True),
     "data_collection_scan": _read(),
+    # -- Forge: remote servers and GitHub (outward-facing: gated like any act) -------------------------
+    "ssh_command": _ACT,
+    "github_status": _read(untrusted=True, volatile=True),
+    "github_actions_runs": _read(untrusted=True, volatile=True),
+    "github_push": _ACT,
+    "github_create_branch": _ACT,
+    "github_create_pull_request": _ACT,
+    "github_merge_pull_request": _ACT,
+    "github_create_release": _ACT,
+    "github_run_workflow": _ACT,
     "mcp_call_tool": ToolMeta(kind=ACT, untrusted=True),  # judged by its target in approvals.py
     # -- the QA browser (one shared session: never in parallel) ---------------------------------------
     "browser_check": _read(untrusted=True, parallel=False, volatile=True),

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import time
@@ -121,3 +122,61 @@ def vps_health_check(host: str = "") -> str:
         except (AttributeError, OSError):
             lines.append("  memory/cpu: psutil not installed and no load-average available on this OS.")
     return "\n".join(lines)
+
+
+_SSH_TARGET = re.compile(r"[A-Za-z0-9_.-]+")
+
+
+def ssh_command(host: str, command: str, user: str = "", port: int = 22, cwd: str = "", timeout: int = 300) -> str:
+    """Run one command on a remote server over SSH (deploys, migrations, restarts, logs).
+
+    Uses the SSH keys of the machine CatCrewAI runs on (``~/.ssh``) in batch mode: it never asks
+    for a password, so a server without key access answers "Permission denied" instead of hanging.
+    A host seen for the first time is trusted and remembered (``accept-new``). Commands that are
+    refused locally (``rm -rf /``, disk formatting...) are refused here too.
+
+    Args:
+        host: Server name or IP, or an alias from ``~/.ssh/config``.
+        command: The remote shell command, e.g. ``git pull && php artisan migrate --force``.
+        user: Login user. Empty uses ``~/.ssh/config`` or the local user name.
+        port: SSH port.
+        cwd: Remote folder to run the command in, e.g. ``/var/www/site``.
+        timeout: Seconds before the command is stopped (10-1800).
+
+    Returns:
+        The exit code and combined output (clipped), or an ``Error:``/refusal message.
+    """
+    import shlex
+
+    from .. import tools as _tools
+
+    host = (host or "").strip()
+    user = (user or "").strip()
+    cmd = (command or "").strip()
+    if not host or not _SSH_TARGET.fullmatch(host) or host.startswith("-"):
+        return f"Error: invalid host {host!r}."
+    if user and (not _SSH_TARGET.fullmatch(user) or user.startswith("-")):
+        return f"Error: invalid user {user!r}."
+    if not cmd:
+        return "Error: empty command."
+    blocked = _tools.blocked_command_reason(cmd)
+    if blocked:
+        return f"Refused: this command {blocked}, so agents may not run it: {cmd}"
+    if shutil.which("ssh") is None:
+        return "Error: ssh is not installed on this machine."
+    remote = f"cd {shlex.quote(cwd.strip())} && {cmd}" if (cwd or "").strip() else cmd
+    args = [
+        "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15", "-o", "StrictHostKeyChecking=accept-new",
+        "-p", str(int(port or 22)), f"{user}@{host}" if user else host, remote,
+    ]
+    limit = max(10, min(int(timeout or 300), 1800))
+    try:
+        done = subprocess.run(args, capture_output=True, text=True, timeout=limit, encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL)
+    except subprocess.TimeoutExpired:
+        return f"Error: the remote command did not finish within {limit}s: {cmd}"
+    except OSError as exc:
+        return f"Error: could not start ssh: {exc}"
+    out = ((done.stdout or "") + ("\n" + done.stderr if done.stderr else "")).strip()
+    if len(out) > 12000:
+        out = out[:4000] + "\n... [clipped] ...\n" + out[-7000:]
+    return f"exit {done.returncode} on {host}\n{out or '(no output)'}"

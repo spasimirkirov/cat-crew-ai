@@ -273,12 +273,19 @@ def _qa_verdict_failed(text: str) -> bool:
     return not re.search(r"\bPASS(?:ED)?\b", opening)
 
 
+# A role no core cat has goes to the cat that covers it: pricing and budgets are Blaze's.
+_ROLE_FALLBACK = {"accountant": "marketing"}
+
+
 def _bot_for_role(registry: Registry, project: Project, role: str) -> Bot | None:
     role = role.lower()
     on_project = [b for b in registry.project_bots(project) if (b.role or "").lower() == role]
     if on_project:
         return on_project[0]
-    return next((b for b in registry.bots.values() if (b.role or "").lower() == role), None)
+    found = next((b for b in registry.bots.values() if (b.role or "").lower() == role), None)
+    if found is None and role in _ROLE_FALLBACK:
+        return _bot_for_role(registry, project, _ROLE_FALLBACK[role])
+    return found
 
 
 def _spontaneous_bots(registry: Registry, project: Project, brief: str) -> list[Bot]:
@@ -294,7 +301,7 @@ def _spontaneous_bots(registry: Registry, project: Project, brief: str) -> list[
             extra.append(bot)
     if any(word in blob for word in _BUDGET_KEYWORDS):
         bot = _bot_for_role(registry, project, "accountant")
-        if bot:
+        if bot and bot not in extra:
             extra.append(bot)
     return extra
 
@@ -951,7 +958,7 @@ def run_project_room_turn(
             if role not in seen:
                 seen.add(role)
                 bot = _bot_for_role(registry, project, role)
-                if bot is not None:
+                if bot is not None and all(bot is not other for _phase, other in order):
                     order.append(("spontaneous", bot))
     if order:
         project.state.setdefault("created_artifacts", [])
