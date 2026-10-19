@@ -21,4 +21,20 @@ frontend/src-tauri/gen/
 # a Windows-style default home created on Linux by mistake
 C:*
 legacy/mixamo_animations/.cache/
-graphify-out
+graphify-out/
+
+# local env variants (the template stays tracked)
+.env.*
+!.env.example
+
+# tool caches, logs and OS clutter
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.log
+*.tsbuildinfo
+node_modules/
+.DS_Store
+Thumbs.db
+desktop.ini
