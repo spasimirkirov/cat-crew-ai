@@ -6,6 +6,7 @@ import { useNow } from "../../lib/useNow";
 import { useStore } from "../../state/store";
 import { Avatar } from "../Avatar";
 import { EmptyState } from "../Ui";
+import { CheckpointsPanel } from "./CheckpointsPanel";
 import { DiffBlock } from "./DiffBlock";
 import { useDiff } from "./useDiff";
 
@@ -27,15 +28,24 @@ function ChangeRow({ change }: { change: FileChange }) {
   );
 }
 
-export function ChangesPanel({ changes }: { changes: FileChange[] }) {
+export function ChangesPanel({ changes, projectId }: { changes: FileChange[]; projectId?: string }) {
+  const checkpoints = projectId ? <CheckpointsPanel projectId={projectId} refreshKey={`${changes.length}:${changes[0]?.diff_uuid ?? ""}`} /> : null;
   if (changes.length === 0) {
-    return <EmptyState icon={faFileCode} title="No file changes yet" hint="Files the cats write show up here the moment they happen." />;
+    return (
+      <>
+        {checkpoints}
+        <EmptyState icon={faFileCode} title="No file changes yet" hint="Files the cats write show up here the moment they happen." />
+      </>
+    );
   }
   return (
-    <ul className="space-y-2 p-3">
-      {changes.map((c) => (
-        <ChangeRow key={c.diff_uuid} change={c} />
-      ))}
-    </ul>
+    <>
+      {checkpoints}
+      <ul className="space-y-2 p-3">
+        {changes.map((c) => (
+          <ChangeRow key={c.diff_uuid} change={c} />
+        ))}
+      </ul>
+    </>
   );
 }

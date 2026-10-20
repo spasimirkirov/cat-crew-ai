@@ -20,6 +20,7 @@ from collections.abc import Callable
 from typing import Any
 
 from backend.harness import tool_meta as _tool_meta
+from backend.harness.checkpoints import open_changes as checkpoints_open_changes
 from backend.harness.model_block import ModelUnavailable
 from backend.providers.base import (
     AbortFn,
@@ -53,6 +54,40 @@ def run_agent(
     swap_provider: SwapProvider | None = None,
     on_compressed: Callable[[int, int, str], None] | None = None,
     stall_rounds: int = 0,
+) -> str:
+    """One agent turn (see :func:`_run_turn`), inside a checkpoint so it can be undone
+    (``harness/checkpoints.py``). A subagent runs inside its parent's checkpoint."""
+    from backend.harness import checkpoints
+    from backend.middleware.jev_gatekeeper import turn_goal
+
+    token = checkpoints.begin(turn_goal(messages))
+    try:
+        return _run_turn(
+            provider, messages, tools, execute_tool, max_rounds, on_text, abort, take_steer,
+            on_tools, swap_provider, on_compressed, stall_rounds, verify=token is not None,
+        )
+    finally:
+        checkpoints.end(token)
+
+
+# A turn whose project check fails goes back to the agent at most this many times.
+_CHECK_RETURNS = 2
+
+
+def _run_turn(
+    provider: BaseProvider,
+    messages: list[Message],
+    tools: list[dict[str, Any]],
+    execute_tool: ToolExecutor,
+    max_rounds: int = 0,
+    on_text: OnText | None = None,
+    abort: AbortFn | None = None,
+    take_steer: SteerFn | None = None,
+    on_tools: OnTools | None = None,
+    swap_provider: SwapProvider | None = None,
+    on_compressed: Callable[[int, int, str], None] | None = None,
+    stall_rounds: int = 0,
+    verify: bool = False,
 ) -> str:
     """Full conversation loop with function calling.
 
@@ -105,6 +140,10 @@ def run_agent(
     last_skipped: tuple[str, str] | None = None
     skip_streak = 0
     empty_nudged = False
+    # The end-of-turn project check (harness/project_check.verify_turn): files already checked, and
+    # how many times a failed check sent the agent back.
+    checked_files = 0
+    check_returns = 0
     explore_n = 0
     explore_steered = False
     cut_offs = 0
@@ -224,6 +263,18 @@ def run_agent(
                     return _with_auto_restart(_empty_text(current))
                 else:
                     _flush_held()
+                    workspace, changed = checkpoints_open_changes() if verify else (None, [])
+                    if workspace is not None and len(changed) > checked_files and check_returns < _CHECK_RETURNS:
+                        checked_files = len(changed)
+                        from backend.harness.project_check import verify_turn
+
+                        problem = verify_turn(workspace, changed)
+                        if problem:
+                            check_returns += 1
+                            print(f"[agent] project check failed after the turn; back to the agent ({check_returns})", flush=True)
+                            messages.append({"role": "assistant", "content": last_text})
+                            messages.append({"role": "user", "content": problem})
+                            continue
                     return _with_auto_restart(last_text)
 
             for index, call in enumerate(reply.tool_calls):

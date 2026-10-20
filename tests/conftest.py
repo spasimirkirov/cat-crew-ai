@@ -85,3 +85,11 @@ class Recorder:
 @pytest.fixture
 def recorder(isolated) -> Recorder:
     return Recorder()
+
+
+@pytest.fixture(autouse=True)
+def _checkpoints_in_tmp(tmp_path_factory, monkeypatch):
+    """Every agent turn may save undo copies (harness/checkpoints.py): never into the real data/."""
+    from backend.harness import checkpoints
+
+    monkeypatch.setattr(checkpoints, "CHECKPOINTS_DIR", tmp_path_factory.mktemp("checkpoints"))

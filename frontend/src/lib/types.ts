@@ -101,6 +101,24 @@ export interface FileChange {
   created_at: string;
 }
 
+export interface Checkpoint {
+  id: string;
+  label: string;
+  /** Unix seconds. */
+  created_at: number;
+  project_id: string;
+  agent_id: string;
+  files: string[];
+  /** Commands and remote actions in that turn: a restore cannot undo them. */
+  commands: string[];
+}
+
+export interface RestoreResult {
+  undone: string[];
+  files: string[];
+  not_undone: string[];
+}
+
 export interface DiffBody {
   diff_uuid: string;
   file_path: string;

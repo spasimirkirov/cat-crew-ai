@@ -7,6 +7,7 @@ import type {
   AvailableTool,
   Bootstrap,
   BrowseResult,
+  Checkpoint,
   DiffBody,
   FileChange,
   HostModels,
@@ -20,6 +21,7 @@ import type {
   ModelsState,
   OpenRouterSettings,
   ProjectModelsState,
+  RestoreResult,
   RoleBrain,
   RoleName,
   Project,
@@ -140,6 +142,11 @@ export const api = {
       patch<Task>(`/api/projects/${enc(pid)}/tasks/${enc(tid)}`, { status }),
     changes: (pid: string, limit = 30) => get<FileChange[]>(`/api/projects/${enc(pid)}/changes?limit=${limit}`),
     diff: (uuid: string) => get<DiffBody>(`/api/diffs/${enc(uuid)}`),
+  },
+
+  checkpoints: {
+    list: (pid: string) => get<Checkpoint[]>(`/api/projects/${enc(pid)}/checkpoints`),
+    restore: (pid: string, id: string) => post<RestoreResult>(`/api/projects/${enc(pid)}/checkpoints/${enc(id)}/restore`, {}),
   },
 
   chat: {

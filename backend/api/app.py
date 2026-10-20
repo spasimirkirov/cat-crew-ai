@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from backend import __version__
 from backend.api import terminal_ws, ws
 from backend.api.events import EventHub
-from backend.api.routes import agents, chat, jev, keys, mcp, meta, models, openrouter, projects, skills, tasks, telemetry, tools
+from backend.api.routes import agents, chat, checkpoints, jev, keys, mcp, meta, models, openrouter, projects, skills, tasks, telemetry, tools
 from backend.api.security import LocalOnlyMiddleware, allowed_origins
 from backend.core.chat_service import ChatError, ChatService
 
@@ -133,7 +133,7 @@ def create_app(*, chat_service: ChatService | None = None, startup: bool = True)
     async def _chat_error(_request: Request, exc: ChatError) -> JSONResponse:
         return JSONResponse({"detail": str(exc)}, status_code=exc.status)
 
-    for module in (meta, projects, agents, tasks, chat, skills, tools, models, keys, telemetry, mcp, jev, openrouter):
+    for module in (meta, projects, agents, tasks, checkpoints, chat, skills, tools, models, keys, telemetry, mcp, jev, openrouter):
         app.include_router(module.router)
     app.include_router(ws.router)
     app.include_router(terminal_ws.router)

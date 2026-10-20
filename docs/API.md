@@ -158,6 +158,8 @@ interface Tool {                 // Executable (Letta-style Python function tool
 | GET | `/api/projects/{pid}/tasks/{tid}` | – | `Task & {results: TaskResult[]}` |
 | PATCH | `/api/projects/{pid}/tasks/{tid}` | `{status}` | `Task` |
 | GET | `/api/projects/{pid}/changes?limit=8` | – | `FileChange[]`, newest first |
+| GET | `/api/projects/{pid}/checkpoints` | – | `Checkpoint[]` newest first: `{id, label, created_at (unix s), project_id, agent_id, files[], commands[]}`; one per agent turn that changed files in the project folder; `[]` without a folder |
+| POST | `/api/projects/{pid}/checkpoints/{id}/restore` | – | `{undone[], files[], not_undone[]}`: files back to before that turn, undoing it and every later one; `409` while a turn runs or without a folder, `404` unknown id |
 | GET | `/api/diffs/{diff_uuid}` | – | `{diff_uuid, file_path, agent_id, diff_content, created_at}` |
 
 ### Chat

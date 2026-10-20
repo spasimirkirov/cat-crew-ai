@@ -108,7 +108,7 @@ export function RightInspector({ projectId, tasks, changes, loaded, resize }: Pr
         ) : tab === "tasks" ? (
           <TasksPanel projectId={projectId} tasks={tasks} />
         ) : (
-          <ChangesPanel changes={changes} />
+          <ChangesPanel changes={changes} projectId={projectId} />
         )}
       </div>
     </aside>

@@ -13,7 +13,7 @@ The loop now runs two hook chains instead, the way OpenClaw's plugin hooks work:
   text).
 
 Hooks run in ``order`` (lower first). The built-ins keep the order the loop always had: approval
-(10), Jev (20); offload (10), untrusted wrapper (20). A read-only call that ran in a parallel batch
+(10), Jev (20), then the checkpoint copy (90, never blocks); offload (10), untrusted wrapper (20). A read-only call that ran in a parallel batch
 (``ctx.prefetched``) has already run, so the before-chain is skipped for it, as before.
 
 Registration is process-wide; ``register_*`` returns a function that removes the hook again.
@@ -132,6 +132,16 @@ def _jev(ctx: ToolCallContext) -> str | None:
     return jev_gatekeeper.guard_tool_call(ctx.name, ctx.arguments, messages=ctx.messages, goal=ctx.goal)
 
 
+def _checkpoint(ctx: ToolCallContext) -> str | None:
+    from backend.harness import checkpoints
+
+    try:
+        checkpoints.before_tool(ctx.name, ctx.arguments)
+    except Exception:  # noqa: BLE001 - saving an undo copy must never block the call itself
+        pass
+    return None
+
+
 def _offload(ctx: ToolCallContext, result: str) -> str:
     from backend.harness import offload
 
@@ -146,5 +156,7 @@ def _untrusted(ctx: ToolCallContext, result: str) -> str:
 
 register_before_tool("approval", _approval, order=10)
 register_before_tool("jev", _jev, order=20)
+# Last, so only a call that will really run saves its undo copy (harness/checkpoints.py).
+register_before_tool("checkpoint", _checkpoint, order=90)
 register_after_tool("offload", _offload, order=10)
 register_after_tool("untrusted", _untrusted, order=20)

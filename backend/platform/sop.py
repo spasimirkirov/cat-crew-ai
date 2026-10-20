@@ -458,10 +458,12 @@ def _check_and_fix(
             "problem below now: open each file named, find the cause (for a Blade view: an "
             "@if / @foreach / @section / @push without its closing directive, or a PHP tag left "
             "open), fix it, and run the check yourself again (php artisan view:cache, php -l, "
-            "npm run build, request the page). Do not start other work.\n\n"
+            "npm run build, request the page). If a problem is in code you did not touch and was "
+            "already there before this work order, say so instead of rewriting unrelated code. "
+            "Do not start other work.\n\n"
             f"{result.report()}\n\nThe work order you were doing:\n{task}"
         )
-        more = run_delegated(
+        more = _run_delegated(
             bot,
             fix_task,
             project=project,
@@ -474,6 +476,15 @@ def _check_and_fix(
         )
         text += f"\n\n[Harness check found problems; {bot.name} fixed them]\n{result.report()}\n\n{more}"
     return text, True
+
+
+def _run_delegated(bot: Bot, task: str, **kwargs):
+    """``run_delegated`` with the pipeline's own project check (``_check_and_fix``) in charge, so
+    the agent loop does not check the same turn a second time."""
+    from backend.harness.project_check import checks_by_caller
+
+    with checks_by_caller():
+        return run_delegated(bot, task, **kwargs)
 
 
 def _continue_task(task: str, tool_events: list[str]) -> str:
@@ -671,7 +682,7 @@ def _run_one(
         run_task = task
         continues = 0
         while True:
-            text = run_delegated(
+            text = _run_delegated(
                 bot,
                 run_task,
                 project=project,

@@ -254,3 +254,8 @@ SCAFFOLD = Scenario(
 
 
 SCENARIOS: dict[str, Scenario] = {s.id: s for s in (FIX_BUG, RENAME, QUESTION, INJECTION, SLUGIFY, SCAFFOLD)}
+
+# The everyday-work scenarios (bugs, features, refactors, security, restraint): scenarios_extra.py.
+from backend.evals.scenarios_extra import EXTRA  # noqa: E402
+
+SCENARIOS.update({s.id: s for s in EXTRA})

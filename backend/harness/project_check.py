@@ -14,24 +14,43 @@ Checks, each only when the project has that stack:
 * Assets: ``npm run build`` for a project that has a build script and installed dependencies.
 * Pages: ``GET`` of the site (APP_URL) and the given paths; a 5xx comes with the tail of
   ``storage/logs/laravel.log``.
+* Python: every ``.py`` file parses (in process, nothing written), then ``ruff`` for syntax errors
+  and undefined names (``E9,F63,F7,F82``) when ruff is installed. No style rules.
+* TypeScript: the project's ``typecheck`` script, or its own ``tsc --noEmit`` (skipped when the
+  build script already runs tsc).
+* Go: ``go build ./...``.
+
+``check_project(changed=...)`` runs only the checks the changed files call for (a CSS edit does not
+run the Python check); without it everything that applies runs. ``verify_turn`` is the end-of-turn
+check of the agent loop (``harness/loop.py``): a turn that changed files is checked before it may
+say done, and a failure goes back to the same agent. The pipeline runs its own check with fix runs
+(``platform/sop.py``) and turns this one off with ``checks_by_caller()``.
 
 Never raises; a check whose tool is missing is skipped, not failed.
 """
 
 from __future__ import annotations
 
+import ast
 import json
 import re
 import shutil
 import subprocess
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Iterator
 
 _PHP_DIRS = ("app", "routes", "config", "database", "bootstrap")
 _MAX_PHP_FILES = 600
 _ENDPATH = re.compile(r"/\*\*PATH (.+?) ENDPATH\*\*/")
 _TIMEOUT = 120
 _BUILD_TIMEOUT = 300
+_SKIP_DIRS = {".git", "node_modules", "vendor", ".venv", "venv", "env", "__pycache__", "build", "dist", "site-packages", ".tox", ".mypy_cache", ".cat-crew-ai", "storage"}
+_MAX_PY_FILES = 3000
+_WEB_EXTS = {".js", ".jsx", ".ts", ".tsx", ".vue", ".svelte", ".css", ".scss", ".sass", ".less", ".html", ".mjs", ".cjs"}
+_TS_EXTS = {".ts", ".tsx", ".vue", ".mts", ".cts"}
 
 
 @dataclass
@@ -195,21 +214,169 @@ def _check_pages(folder: Path, paths: list[str], result: CheckResult) -> None:
         result.passed.append(f"pages answer without a server error ({base})")
 
 
-def check_project(folder: str | Path, *, paths: list[str] | None = None) -> CheckResult | None:
-    """Run every check that applies to ``folder``. ``None`` when nothing applies (no known stack)."""
+def _walk(folder: Path, suffix: str, limit: int) -> list[Path]:
+    found: list[Path] = []
+    stack = [folder]
+    while stack and len(found) < limit:
+        current = stack.pop()
+        try:
+            children = list(current.iterdir())
+        except OSError:
+            continue
+        for child in children:
+            if child.is_dir():
+                if child.name not in _SKIP_DIRS and not child.name.startswith("."):
+                    stack.append(child)
+            elif child.suffix == suffix:
+                found.append(child)
+    return found[:limit]
+
+
+def _check_python(folder: Path, result: CheckResult, changed: list[Path] | None) -> None:
+    files = [p for p in changed if p.suffix == ".py" and p.is_file()] if changed is not None else _walk(folder, ".py", _MAX_PY_FILES)
+    if not files:
+        return
+    bad = 0
+    for path in files:
+        try:
+            ast.parse(path.read_bytes(), filename=str(path))
+        except SyntaxError as exc:
+            bad += 1
+            result.problems.append(f"Python syntax in {_rel(path, folder)}:{exc.lineno}: {exc.msg}")
+        except (OSError, ValueError):
+            continue
+    ruff = shutil.which("ruff") or next((str(p) for p in (folder / ".venv" / "bin" / "ruff", folder / ".venv" / "Scripts" / "ruff.exe") if p.is_file()), "")
+    if ruff and not bad:
+        targets = [str(p) for p in files] if changed is not None else ["."]
+        code, out = _run([ruff, "check", "--select", "E9,F63,F7,F82", "--output-format", "concise", "--no-cache", *targets], folder)
+        if code not in (0, 127, 124):
+            errors = [ln for ln in out.splitlines() if re.search(r":\d+:\d+: [A-Z]+\d+", ln)]
+            prefix = str(folder)
+            for line in errors[:25]:
+                short = line.replace(prefix, "").lstrip("/\\")
+                result.problems.append(f"Python (ruff) {short}")
+            bad += len(errors) or 1
+    if not bad:
+        result.passed.append(f"Python parses ({len(files)} files)" + (" and ruff finds no errors" if ruff else ""))
+
+
+def _rel(path: Path, folder: Path) -> str:
+    try:
+        return path.resolve().relative_to(folder.resolve()).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def _scripts(folder: Path) -> dict:
+    try:
+        data = json.loads((folder / "package.json").read_text(encoding="utf-8", errors="replace"))
+    except (OSError, ValueError):
+        return {}
+    scripts = data.get("scripts") if isinstance(data, dict) else None
+    return scripts if isinstance(scripts, dict) else {}
+
+
+def _check_typescript(folder: Path, result: CheckResult, build_runs: bool) -> None:
+    if not (folder / "tsconfig.json").is_file() or not (folder / "node_modules").is_dir():
+        return
+    scripts = _scripts(folder)
+    npm = shutil.which("npm") or shutil.which("npm.cmd")
+    if scripts.get("typecheck") and npm:
+        args, label = [npm, "run", "typecheck"], "npm run typecheck"
+    elif build_runs and "tsc" in str(scripts.get("build") or ""):
+        return  # the build already type-checks
+    else:
+        tsc = next((p for p in (folder / "node_modules" / ".bin" / "tsc", folder / "node_modules" / ".bin" / "tsc.cmd") if p.is_file()), None)
+        if tsc is None:
+            return
+        args, label = [str(tsc), "--noEmit", "-p", "."], "tsc --noEmit"
+    code, out = _run(args, folder, timeout=_BUILD_TIMEOUT)
+    if code == 0:
+        result.passed.append(label)
+        return
+    errors = [ln.strip() for ln in out.splitlines() if "error TS" in ln]
+    if not errors:
+        errors = [out[-1200:]]
+    result.problems.append(f"{label} failed ({len(errors)} error(s)):\n" + "\n".join(errors[:25]))
+
+
+def _check_go(folder: Path, result: CheckResult) -> None:
+    go = shutil.which("go")
+    if not go or not (folder / "go.mod").is_file():
+        return
+    code, out = _run([go, "build", "./..."], folder, timeout=_BUILD_TIMEOUT)
+    if code == 0:
+        result.passed.append("go build ./...")
+    else:
+        result.problems.append(f"go build failed: {out[-1500:]}")
+
+
+def check_project(folder: str | Path, *, paths: list[str] | None = None, changed: list[str] | None = None) -> CheckResult | None:
+    """Run the checks that apply to ``folder``. ``changed`` (paths relative to it, or absolute)
+    limits them to what those files call for; ``None`` runs everything that applies. Returns
+    ``None`` when nothing applies (no known stack, or nothing relevant changed)."""
     root = Path(folder)
     if not root.is_dir():
         return None
+    files = None if changed is None else [Path(c) if Path(c).is_absolute() else root / c for c in changed]
+    exts = None if files is None else {p.suffix.lower() for p in files}
+
+    def wants(*kinds: str) -> bool:
+        return exts is None or any(k in exts for k in kinds)
+
     result = CheckResult()
     php = shutil.which("php")
     laravel = (root / "artisan").is_file()
-    if php and (laravel or (root / "composer.json").is_file()):
+    if php and (laravel or (root / "composer.json").is_file()) and wants(".php"):
         _check_php(root, php, result)
         if laravel:
             _check_blade(root, php, result)
-    _check_build(root, result)
-    if laravel:
+    build_runs = wants(*_WEB_EXTS, ".php")
+    if build_runs:
+        _check_build(root, result)
+    if wants(*_TS_EXTS):
+        _check_typescript(root, result, build_runs)
+    if wants(".py"):
+        _check_python(root, result, files)
+    if wants(".go"):
+        _check_go(root, result)
+    if laravel and wants(".php", *_WEB_EXTS):
         _check_pages(root, list(paths or []), result)
     if not result.problems and not result.passed:
         return None
     return result
+
+
+# -- the agent loop's end-of-turn check -------------------------------------------------------
+
+_caller_checks: ContextVar[bool] = ContextVar("catcrew_caller_checks", default=False)
+
+
+@contextmanager
+def checks_by_caller() -> Iterator[None]:
+    """Inside this block the loop does not check at the end of a turn: the caller does."""
+    token = _caller_checks.set(True)
+    try:
+        yield
+    finally:
+        _caller_checks.reset(token)
+
+
+def verify_turn(workspace: str | Path, changed: list[str]) -> str | None:
+    """The nudge for an agent whose turn broke the project, or ``None`` when it is fine (or there
+    is nothing to check)."""
+    if _caller_checks.get() or not changed:
+        return None
+    try:
+        result = check_project(workspace, changed=changed)
+    except Exception as exc:  # noqa: BLE001 - a broken check must never break the turn
+        print(f"[check] skipped: {exc}", flush=True)
+        return None
+    if result is None or result.ok:
+        return None
+    return (
+        "Before you finish: the harness checked the project after your changes and found "
+        "problems. Fix them now, then check again yourself (run the same command). If a problem is "
+        "in code you did not touch and was already there before this task, do not rewrite it: say "
+        "so in your answer.\n\n" + result.report()
+    )
