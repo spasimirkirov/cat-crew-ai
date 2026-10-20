@@ -25,9 +25,10 @@ The page and the API share one loopback origin, and **Power off** in the sidebar
 On a server, bind a network address: `python -m backend --ui --host 0.0.0.0` turns on accounts.
 The console prints a setup code for the first account, which becomes the admin; further accounts
 come from the admin's one-time invite links (Users page). Put a TLS proxy (Caddy, nginx) in front:
-never serve it over plain HTTP on the internet. Regular users' agents run in a container each, so
-build the sandbox image on the server first (`docker build -t catcrew-sandbox:latest docker/sandbox`);
-until it exists, only admins can be invited. Run the backend as an ordinary (non-root) user.
+never serve it over plain HTTP on the internet. Regular users' agents run sandboxed with bubblewrap
+(`sudo apt install bubblewrap`, no daemon, next to no memory): they see only their own workspace.
+Until it works, only admins can be invited. Run the backend as an ordinary (non-root) user, with
+PHP, Node and Composer installed on the server itself.
 
 Documentation lives in [`docs/`](docs/):
 

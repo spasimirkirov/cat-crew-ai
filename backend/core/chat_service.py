@@ -173,7 +173,7 @@ def _confined(project_id: str) -> bool:
 
 
 def _sandbox_for(project_id: str):
-    """The container a regular user's turn runs its commands in (services/sandbox.py)."""
+    """The sandbox a regular user's turn runs its commands in (services/sandbox.py)."""
     from backend.api import access
     from backend.services import sandbox
 

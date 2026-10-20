@@ -143,7 +143,7 @@ Admin-only: `/api/keys`, `/api/users`, `/api/mcp`, `/api/jev`, `/api/openrouter`
 | GET / POST | `/api/auth/invite/{token}` | – / `{username, password}` | invite info / `{user}` + cookie (one-time, 72 h) |
 | POST | `/api/auth/password` | `{old, new}` | `204`; ends every session of the account |
 | GET | `/api/users` | – | `{users: User[], invites[], sandbox: {ready, detail}}` (admin) |
-| POST | `/api/users/invites` | `{role: "user"\|"admin", hours?}` | `201 {token, url, role}`; a `user` invite is `409` until the agent sandbox is ready (Docker running, `catcrew-sandbox` image built) |
+| POST | `/api/users/invites` | `{role: "user"\|"admin", hours?}` | `201 {token, url, role}`; a `user` invite is `409` until the agent sandbox is ready (bubblewrap installed and able to start) |
 | PATCH / DELETE | `/api/users/{id}` | `{role}` / – | the last admin cannot be demoted or removed |
 
 `User`: `{id, username, role: "admin"|"user", created_at}`. Each user sees only their own projects,

@@ -19,7 +19,7 @@ def _git_env() -> dict[str, str]:
 
     if is_confined():
         # A regular user's repository on a server: its hooks, fsmonitor and ext:: remotes would run
-        # their commands on the server itself, outside the user's container.
+        # their commands on the server itself, outside the user's sandbox.
         for i, (key, value) in enumerate((("core.hooksPath", "/dev/null"), ("core.fsmonitor", "false"), ("protocol.ext.allow", "never"))):
             env[f"GIT_CONFIG_KEY_{i}"], env[f"GIT_CONFIG_VALUE_{i}"] = key, value
         env["GIT_CONFIG_COUNT"] = "3"

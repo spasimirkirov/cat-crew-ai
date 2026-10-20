@@ -125,7 +125,10 @@ def test_wrong_password_and_logout(remote) -> None:
     assert remote.post("/api/auth/login", json={"username": "ada", "password": "a-long-password"}).status_code == 200
 
 
-def test_regular_users_cannot_touch_global_settings(remote) -> None:
+def test_regular_users_cannot_touch_global_settings(remote, monkeypatch) -> None:
+    from backend.services import sandbox
+
+    monkeypatch.setattr(sandbox, "status", lambda refresh=False: {"ready": False, "detail": "not here"})
     admin = _setup_admin(remote)
     token = auth.create_invite(admin["id"], "user")  # the API refuses user invites until the sandbox
     assert remote.post("/api/users/invites", json={"role": "user"}).status_code == 409

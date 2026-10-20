@@ -69,7 +69,7 @@ class CheckResult:
 
 
 def _which(name: str) -> str | None:
-    """The program on the host, or its bare name when the turn runs in a sandbox (the image has it)."""
+    """The program on the host; called by name inside a sandbox (the same programs, read-only)."""
     from backend.services import sandbox
 
     return name if sandbox.current() is not None else shutil.which(name)
@@ -213,7 +213,7 @@ def _check_pages(folder: Path, paths: list[str], result: CheckResult) -> None:
         return
     from backend.services import sandbox
 
-    base = sandbox.reachable_url(base).rstrip("/")  # a sandboxed app answers at its container
+    base = sandbox.reachable_url(base).rstrip("/")
     import requests
 
     bad = 0

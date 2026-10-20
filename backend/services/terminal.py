@@ -28,7 +28,7 @@ def _kill_tree(proc: subprocess.Popen | None) -> None:
     if proc is None or proc.poll() is not None:
         return
     boxed = getattr(proc, "catcrew_sandbox", None)
-    if boxed is not None:  # a command in a user's container: stop it there, not only the client
+    if boxed is not None:  # a command in a user's sandbox (bwrap: killing it below ends everything inside)
         box, tag = boxed
         try:
             box.kill(tag)
@@ -299,7 +299,7 @@ def _title_for(command: str) -> str:
 def _popen(command: str, cwd: Path, env: dict[str, str]) -> subprocess.Popen:
     from backend.services import sandbox
 
-    box = sandbox.current()  # a regular user's turn on a server: the command runs in their container
+    box = sandbox.current()  # a regular user's turn on a server: the command runs in their sandbox
     tag = uuid.uuid4().hex[:12] if box is not None else ""
     kwargs: dict[str, Any] = {
         "args": box.exec_argv(command, cwd, tag=tag) if box is not None else command,
@@ -321,6 +321,7 @@ def _popen(command: str, cwd: Path, env: dict[str, str]) -> subprocess.Popen:
     proc = subprocess.Popen(**kwargs)
     if box is not None:
         proc.catcrew_sandbox = (box, tag)  # type: ignore[attr-defined]  # read by _kill_tree
+        sandbox.track(box, proc.pid)  # its dev servers count as this user's
     return proc
 
 

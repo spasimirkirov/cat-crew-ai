@@ -183,7 +183,7 @@ class TerminalSession:
         self._proc: subprocess.Popen | None = None
         self._closed = False
         self._interrupted = False
-        #: A regular user's terminal on a server: every command runs in their container.
+        #: A regular user's terminal on a server: every command runs in their sandbox.
         self.sandbox: Any = None
 
     # -- state --
@@ -283,7 +283,10 @@ class TerminalSession:
             kwargs["start_new_session"] = True
         proc = subprocess.Popen(**kwargs)
         if self.sandbox is not None:
+            from backend.services import sandbox as _sandbox
+
             proc.catcrew_sandbox = (self.sandbox, tag)  # type: ignore[attr-defined]  # read by _kill_tree
+            _sandbox.track(self.sandbox, proc.pid)
         return proc
 
     def _pump(self, proc: subprocess.Popen) -> None:

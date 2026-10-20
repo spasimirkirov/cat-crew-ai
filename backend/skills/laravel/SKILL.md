@@ -61,12 +61,13 @@ Seed it in `DatabaseSeeder` with `User::updateOrCreate(['email' => ...], [...])`
   `DB_CONNECTION=sqlite` and an existing `database/database.sqlite`.
 - After `.env` changes: `php artisan config:clear`.
 
-## Environment (a server account, in a container)
+## Environment (a server account, sandboxed)
 
-- Commands run in your own container; there is no Apache or Laragon. Serve the site with
-  `php artisan serve --host=0.0.0.0 --port=8000` in the background (run it once, then keep working),
-  set `APP_URL=http://127.0.0.1:8000`, and use SQLite (`DB_CONNECTION=sqlite`).
-- `--host=0.0.0.0` matters: the browser and the checks reach your container from outside it.
+- Commands run in your own sandbox; there is no Apache or Laragon. Serve the site with
+  `php artisan serve --port=8000` in the background (run it once, then keep working), set
+  `APP_URL=http://127.0.0.1:8000`, and use SQLite (`DB_CONNECTION=sqlite`).
+- Other people's sites may run on the same server: if the port is taken, pick another between
+  8000 and 8999 and put the same one in `APP_URL`.
 
 ## The finish line (run all of these, in this order)
 

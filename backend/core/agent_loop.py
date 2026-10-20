@@ -161,7 +161,7 @@ class _Steerable:
         #: ``None`` keeps whatever the process has.
         self.folders: list[str] | None = None
         #: A regular user's turn in remote mode: file tools stay inside ``folders``, and commands
-        #: run in the user's container (``services/sandbox.py``).
+        #: run in the user's bubblewrap sandbox (``services/sandbox.py``).
         self.confined = False
         self.sandbox: Any = None
 

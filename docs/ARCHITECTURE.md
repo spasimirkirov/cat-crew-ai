@@ -50,17 +50,19 @@ console and becomes the admin; later accounts come from one-time admin invites. 
 `owner_id`; lists, turns, approvals, diffs and `/ws/events` (`Client.owner_id`) are filtered by it;
 folders live under `data/users/<id>/workspace/`. A regular user's turns are *confined*
 (`services/workspace.bind_confined`): file tools reach only the project's folders, never the
-install tree. Their commands run in a container per user (`services/sandbox.py`, image from
-`docker/sandbox/Dockerfile`): only their workspace mounted at `/workspace`, memory/CPU/process
-limits, `--cap-drop ALL`, `no-new-privileges`. The turn binds its `Sandbox`, and every process the
-harness starts for it goes through `docker exec`: agent commands (`services/terminal._popen`), the
-project check (`harness/project_check._run`, so `artisan` and npm scripts never run on the host) and
-the project terminal. Git runs without hooks, fsmonitor or `ext::` remotes for them. The `sandbox`
-before-tool hook (order 5) refuses tools that act with the admin's access (GitHub, SSH, MCP,
-connectors, databases, the desktop, code mode) and URLs into the server's own network (loopback,
-private and link-local ranges, cloud metadata); a loopback URL is pointed at the user's container,
-where their dev server runs (it must listen on `0.0.0.0`). Until `sandbox.status()` is ready (Docker
-running, image built), user invites are refused and a regular user's terminal stays closed.
+install tree. Their commands run under bubblewrap (`services/sandbox.py`, `bwrap`: no daemon, no
+image): the system's programs read-only, their workspace and `data/users/<id>/home` read-write at
+their real paths, a private `/tmp` and PID namespace, a cleared environment. Other users' folders,
+`data/` (keys, accounts) and the rest of the server do not exist inside. The turn binds its `Sandbox`,
+and every process the harness starts for it goes through bwrap: agent commands
+(`services/terminal._popen`), the project check (`harness/project_check._run`, so `artisan` and npm
+scripts never run unconfined) and the project terminal; killing the process ends everything
+inside. Git runs without hooks, fsmonitor or `ext::` remotes for them. The `sandbox` before-tool hook
+(order 5) refuses tools that act with the admin's access (GitHub, SSH, MCP, connectors, databases,
+the desktop, code mode) and URLs into the server's own network (loopback, private and link-local
+ranges, cloud metadata), except a loopback port that one of the user's own sandboxed processes
+listens on (`sandbox.owns_port`: their dev server). Until `sandbox.status()` is ready (bwrap installed
+and allowed to create namespaces), user invites are refused and a regular user's terminal stays closed.
 
 ## 2. The API and the live event stream
 
