@@ -1,11 +1,17 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { api } from "../../lib/api";
 import { seedStore } from "../../pages/__tests__/helpers";
 import { PowerOff } from "../PowerOff";
 
 const invoke = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...args: unknown[]) => invoke(...args) }));
+let browserMode = false;
+vi.mock("../../lib/config", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../lib/config")>()),
+  isBrowserMode: () => browserMode,
+}));
 
 const asTauri = (on: boolean) => {
   const w = window as unknown as Record<string, unknown>;
@@ -19,13 +25,30 @@ beforeEach(() => {
   seedStore();
   asTauri(true);
 });
-afterEach(() => asTauri(false));
+afterEach(() => {
+  asTauri(false);
+  browserMode = false;
+  vi.restoreAllMocks();
+});
 
 describe("PowerOff", () => {
-  it("is not rendered in a plain browser (nothing to quit there)", () => {
+  it("is not rendered in a tab the backend did not serve (Vite dev: nothing to quit there)", () => {
     asTauri(false);
     const { container } = render(<PowerOff />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("in browser mode stops the engine that served the tab", async () => {
+    asTauri(false);
+    browserMode = true;
+    const shutdown = vi.spyOn(api, "shutdown").mockResolvedValue({ status: "stopping" });
+    render(<PowerOff />);
+    fireEvent.click(screen.getByRole("button", { name: "Power off" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("Closing this tab leaves the engine running");
+    fireEvent.click(screen.getByRole("button", { name: /shut down/i }));
+    await waitFor(() => expect(shutdown).toHaveBeenCalled());
+    expect(await screen.findByText(/CatCrewAI is stopped/)).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalled();
   });
 
   it("asks before doing anything, and Cancel leaves the app running", () => {

@@ -102,6 +102,8 @@ export interface NewProject {
 export const api = {
   health: () => get<{ status: string; version: string; busy: boolean }>("/api/health"),
   bootstrap: () => get<Bootstrap>("/api/bootstrap"),
+  /** Stop the engine (browser mode's Power off; the desktop shell has its own quit command). */
+  shutdown: () => post<{ status: string }>("/api/shutdown", {}),
 
   telemetry: {
     /** One snapshot for the inspector's Telemetry tab (context, balances, quotas, GPU). */

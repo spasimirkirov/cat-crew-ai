@@ -13,5 +13,8 @@ export default defineConfig({
     setupFiles: ["./src/test-setup.ts"],
     globals: true,
     css: false,
+    // jsdom serves the tests from http://localhost:3000; pin the API like the desktop shell does, so
+    // the page is not taken for browser mode (src/lib/config.ts).
+    env: { VITE_API_URL: "http://127.0.0.1:8765" },
   },
 });

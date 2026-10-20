@@ -4,6 +4,13 @@ CatCrewAI is three cooperating parts: a **Python backend** that owns every agent
 
 ## 1. Layout and process model
 
+Two ways to run it, one backend: the Tauri shell starts the engine and loads the UI in its window,
+or **browser mode** (`python -m backend --ui`, `api/ui.py`) has the engine serve the built UI
+(`frontend/dist`) itself on a loopback port (8765, or a free one) and open a browser tab. The UI
+only ever talks to the API over REST and `/ws/events`, so it does not care which; it calls the
+origin it was loaded from (`frontend/src/lib/config.ts`), and `api/security.py` admits that same
+loopback origin next to the Tauri and Vite ones.
+
 ```
   Tauri shell (Rust, frontend/src-tauri)             starts / stops the backend, owns the native window
       |  loads

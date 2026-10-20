@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncIterator
 
 from fastapi import FastAPI, Request
@@ -90,7 +91,7 @@ def _shutdown_runtimes() -> None:
         print(f"[app] terminal close failed: {exc}", flush=True)
 
 
-def create_app(*, chat_service: ChatService | None = None, startup: bool = True) -> FastAPI:
+def create_app(*, chat_service: ChatService | None = None, startup: bool = True, ui_dir: Path | None = None) -> FastAPI:
     hub = EventHub()
 
     @asynccontextmanager
@@ -137,4 +138,8 @@ def create_app(*, chat_service: ChatService | None = None, startup: bool = True)
         app.include_router(module.router)
     app.include_router(ws.router)
     app.include_router(terminal_ws.router)
+    if ui_dir is not None:  # browser mode (api/ui.py): after every route, so the API always wins
+        from backend.api.ui import mount_ui
+
+        mount_ui(app, ui_dir)
     return app

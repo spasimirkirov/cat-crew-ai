@@ -3,6 +3,11 @@
     python -m backend                 # http://127.0.0.1:8765
     python -m backend --port 9000
     python -m backend --smoke         # start, check /api/health, exit 0/1
+    python -m backend --ui            # browser mode: serve frontend/dist and open it
+    python -m backend --ui --port 0   # ... on any free port
+
+Browser mode needs the built front end (``cd frontend && npm run build``). With ``--ui`` the
+default port falls back to a free one when 8765 is taken.
 
 Only loopback binds are accepted: the API can run shell commands and edit files
 on the user's machine, so it must not be reachable from the network.
@@ -32,8 +37,39 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--host", default=os.environ.get("CATCREW_HOST", DEFAULT_HOST))
     parser.add_argument("--port", type=int, default=int(os.environ.get("CATCREW_PORT", DEFAULT_PORT)))
     parser.add_argument("--smoke", action="store_true", help="start, probe /api/health, exit")
+    parser.add_argument("--ui", action="store_true", default=os.environ.get("CATCREW_UI", "") == "1",
+                        help="browser mode: serve the built front end (frontend/dist) and open it")
+    parser.add_argument("--no-browser", action="store_true", help="with --ui: do not open a browser tab")
     parser.add_argument("--log-level", default="warning")
     return parser.parse_args(argv)
+
+
+def free_port(host: str = DEFAULT_HOST, preferred: int = 0) -> int:
+    """``preferred`` when nothing listens on it, else a port the OS picks."""
+    import socket
+
+    for port in ((preferred, 0) if preferred else (0,)):
+        with socket.socket(socket.AF_INET6 if ":" in host else socket.AF_INET, socket.SOCK_STREAM) as sock:
+            try:
+                sock.bind((host, port))
+            except OSError:
+                continue
+            return int(sock.getsockname()[1])
+    raise OSError("no free port")
+
+
+def _open_browser(server, url: str) -> None:
+    """Open ``url`` once the server accepts connections."""
+    import webbrowser
+
+    for _ in range(200):
+        if server.started:
+            break
+        time.sleep(0.05)
+    try:
+        webbrowser.open(url)
+    except Exception as exc:  # noqa: BLE001 - no browser on this machine: the printed URL is enough
+        print(f"[backend] could not open a browser ({exc}); open {url} yourself.", flush=True)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -41,6 +77,21 @@ def main(argv: list[str] | None = None) -> int:
     if args.host not in _LOOPBACK:
         print(f"[backend] refusing to bind {args.host!r}: the API is loopback-only.", file=sys.stderr)
         return 2
+    ui_dir = None
+    if args.ui:
+        from backend.api.ui import FRONTEND_DIST, ui_ready
+
+        if not ui_ready():
+            print(
+                f"[backend] browser mode needs the built front end in {FRONTEND_DIST}: "
+                "run `cd frontend && npm install && npm run build` first.",
+                file=sys.stderr,
+            )
+            return 2
+        ui_dir = FRONTEND_DIST
+        explicit = any(a == "--port" or a.startswith("--port=") for a in (argv if argv is not None else sys.argv[1:]))
+        if args.port == 0 or not explicit:
+            args.port = free_port(args.host, 0 if args.port == 0 else args.port)
 
     from backend.services.logutil import install as quiet_logs
 
@@ -49,14 +100,18 @@ def main(argv: list[str] | None = None) -> int:
     from backend.services.instance_lock import acquire
 
     if not acquire():
-        print("[backend] CatCrewAI backend is already running.", file=sys.stderr)
+        print(
+            "[backend] CatCrewAI backend is already running (the desktop app, or another --ui). "
+            "Close it first; one engine owns the data folder.",
+            file=sys.stderr,
+        )
         return 1
 
     import uvicorn
 
     from backend.api.app import create_app
 
-    app = create_app()
+    app = create_app(ui_dir=ui_dir)
     config = uvicorn.Config(
         app,
         host=args.host,
@@ -96,6 +151,12 @@ def main(argv: list[str] | None = None) -> int:
 
     # Tauri (or a script) waits for this line before it connects.
     print(f"CATCREW_LISTENING http://{args.host}:{args.port}", flush=True)
+    if ui_dir is not None:
+        shown = "127.0.0.1" if args.host == "localhost" else f"[{args.host}]" if ":" in args.host else args.host
+        url = f"http://{shown}:{args.port}/"
+        print(f"[backend] CatCrewAI is open at {url}", flush=True)
+        if not args.no_browser and not args.smoke:
+            threading.Thread(target=_open_browser, args=(server, url), daemon=True).start()
     server.run()
     return result["code"]
 

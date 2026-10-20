@@ -2,7 +2,8 @@ import { faPowerOff } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useState } from "react";
 
-import { isTauri } from "../lib/config";
+import { api } from "../lib/api";
+import { isBrowserMode, isTauri } from "../lib/config";
 import { quitApp } from "../lib/window";
 import { useStore } from "../state/store";
 import { Modal } from "./Modal";
@@ -11,15 +12,18 @@ import { ErrorNote, Spinner } from "./Ui";
 /**
  * "Power Off" for the sidebar footer. The window's X only hides CatCrewAI to the system tray;
  * this is the explicit way to shut down the UI *and* the Python engine behind it.
- * It exists only inside the desktop shell: a browser tab has nothing to quit.
+ * In the desktop shell it quits the app; in browser mode (`python -m backend --ui`) it stops the
+ * engine that served the tab. A tab on the Vite dev server has nothing of its own to quit.
  */
 export function PowerOff() {
   const [asking, setAsking] = useState(false);
   const [quitting, setQuitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stopped, setStopped] = useState(false);
   const working = useStore((s) => Object.values(s.activity).some((a) => a.state === "working"));
 
-  if (!isTauri()) return null;
+  const desktop = isTauri();
+  if (!desktop && !isBrowserMode()) return null;
 
   const close = () => {
     if (quitting) return;
@@ -31,7 +35,12 @@ export function PowerOff() {
     setQuitting(true);
     setError(null);
     try {
-      await quitApp(); // the process exits; on success this window simply goes away
+      if (desktop) {
+        await quitApp(); // the process exits; on success this window simply goes away
+      } else {
+        await api.shutdown(); // the engine stops; this tab stays, with nothing behind it
+        setStopped(true);
+      }
     } catch (e) {
       setQuitting(false);
       setError(e instanceof Error ? e.message : String(e));
@@ -66,11 +75,19 @@ export function PowerOff() {
             </>
           }
         >
-          <p className="text-sm text-ink">Shut down CatCrewAI and stop background engine?</p>
-          <p className="mt-2 text-xs text-muted">
-            Closing the window with X only hides the app to the system tray. Powering off quits it completely.
-            {working && " The crew is still working — that run will be stopped."}
-          </p>
+          {stopped ? (
+            <p className="text-sm text-ink">CatCrewAI is stopped. You can close this tab; start it again with python -m backend --ui.</p>
+          ) : (
+            <>
+              <p className="text-sm text-ink">Shut down CatCrewAI and stop background engine?</p>
+              <p className="mt-2 text-xs text-muted">
+                {desktop
+                  ? "Closing the window with X only hides the app to the system tray. Powering off quits it completely."
+                  : "Closing this tab leaves the engine running. Powering off stops it."}
+                {working && " The crew is still working — that run will be stopped."}
+              </p>
+            </>
+          )}
           <div className="mt-2">
             <ErrorNote message={error} />
           </div>

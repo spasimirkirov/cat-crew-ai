@@ -13,6 +13,17 @@ npm install
 npm run tauri dev                # opens the desktop window and starts the backend
 ```
 
+Or in any browser, without the desktop shell (browser mode):
+
+```powershell
+cd frontend; npm install; npm run build; cd ..
+python -m backend --ui           # serves the app on 127.0.0.1 (8765, or a free port) and opens it
+python -m backend --ui --port 0  # any free port; --no-browser to only print the address
+```
+
+The page and the API share one loopback origin, and **Power off** in the sidebar stops the engine.
+Browser mode is still loopback-only; it is the first step towards running CatCrewAI on a server.
+
 Documentation lives in [`docs/`](docs/):
 
 | Document | What it covers |

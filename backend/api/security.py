@@ -8,8 +8,10 @@ both, for HTTP and WebSocket alike:
 * ``Host`` must be a loopback name (``127.0.0.1``, ``localhost``, ``[::1]``);
   a rebound ``evil.example`` is rejected.
 * ``Origin``, when present, must be on the allow-list (the Tauri webview and the
-  Vite dev server). Requests with no ``Origin`` (curl, the Tauri Rust side,
-  tests) are allowed: browsers always send it on cross-origin requests.
+  Vite dev server) or be the API's own loopback origin (browser mode, ``api/ui.py``:
+  the page was served by this server, from the same ``Host``). Requests with no
+  ``Origin`` (curl, the Tauri Rust side, tests) are allowed: browsers always send
+  it on cross-origin requests.
 """
 
 from __future__ import annotations
@@ -46,10 +48,15 @@ def host_allowed(host_header: str) -> bool:
     return _host_only(host_header) in _LOOPBACK_HOSTS
 
 
-def origin_allowed(origin: str | None, allowed: list[str]) -> bool:
+def origin_allowed(origin: str | None, allowed: list[str], host: str = "") -> bool:
     if origin is None:
         return True
-    return origin.rstrip("/") in allowed
+    origin = origin.rstrip("/")
+    if origin in allowed:
+        return True
+    # Same origin: a page this server served (browser mode). The Host header is already known to be
+    # loopback, so a rebound hostname cannot pass as "same origin".
+    return bool(host) and host_allowed(host) and origin.lower() == f"http://{host.strip().lower()}"
 
 
 ASGIApp = Callable[[dict, Callable[[], Awaitable[dict]], Callable[[dict], Awaitable[None]]], Awaitable[None]]
@@ -70,7 +77,7 @@ class LocalOnlyMiddleware:
         reason = ""
         if not host_allowed(headers.get("host", "")):
             reason = "Host not allowed"
-        elif not origin_allowed(headers.get("origin"), self.allowed):
+        elif not origin_allowed(headers.get("origin"), self.allowed, headers.get("host", "")):
             reason = "Origin not allowed"
         if not reason:
             await self.app(scope, receive, send)
