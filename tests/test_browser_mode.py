@@ -76,3 +76,25 @@ def test_ui_without_a_build_explains_how_to_make_one(monkeypatch, tmp_path, caps
     monkeypatch.setattr(ui, "FRONTEND_DIST", tmp_path / "missing")
     assert entry.main(["--ui"]) == 2
     assert "npm run build" in capsys.readouterr().err
+
+
+def test_remote_flag_turns_logins_on_even_on_loopback(monkeypatch) -> None:
+    """Behind a reverse proxy the server listens on 127.0.0.1, yet the requests come from the internet."""
+    seen: dict = {}
+
+    def fake_create_app(**kwargs):
+        seen.update(kwargs)
+        raise SystemExit(0)
+
+    from backend.api import app as app_module
+    from backend.services import instance_lock
+
+    monkeypatch.setattr(app_module, "create_app", fake_create_app)
+    monkeypatch.setattr(instance_lock, "acquire", lambda: True)
+    with pytest.raises(SystemExit):
+        entry.main(["--remote", "--host", "127.0.0.1", "--port", "0"])
+    assert seen["remote"] is True
+    seen.clear()
+    with pytest.raises(SystemExit):
+        entry.main(["--host", "127.0.0.1", "--port", "0"])
+    assert seen["remote"] is False

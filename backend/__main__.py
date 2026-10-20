@@ -15,6 +15,9 @@ a setup code printed here) is the admin, and further accounts come from admin in
 proxy (Caddy, nginx) in front of a public server:
 
     python -m backend --ui --host 0.0.0.0 --port 8765
+    python -m backend --ui --remote --no-browser   # behind Caddy/nginx on the same server
+
+``scripts/vps/setup.sh`` sets up a server that way (Caddy with HTTPS, a systemd service).
 """
 
 from __future__ import annotations
@@ -44,6 +47,8 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--ui", action="store_true", default=os.environ.get("CATCREW_UI", "") == "1",
                         help="browser mode: serve the built front end (frontend/dist) and open it")
     parser.add_argument("--no-browser", action="store_true", help="with --ui: do not open a browser tab")
+    parser.add_argument("--remote", action="store_true", default=os.environ.get("CATCREW_REMOTE", "") == "1",
+                        help="require logins even on loopback: behind a reverse proxy (Caddy, nginx) on the same server")
     parser.add_argument("--log-level", default="warning")
     return parser.parse_args(argv)
 
@@ -78,7 +83,9 @@ def _open_browser(server, url: str) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse(argv)
-    remote = args.host not in _LOOPBACK
+    # Any network address means remote. So does --remote: behind a TLS proxy the server listens on
+    # loopback, yet every request comes from the internet.
+    remote = args.remote or args.host not in _LOOPBACK
     ui_dir = None
     if args.ui:
         from backend.api import ui

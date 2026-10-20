@@ -13,22 +13,30 @@ npm install
 npm run tauri dev                # opens the desktop window and starts the backend
 ```
 
-Or in any browser, without the desktop shell (browser mode):
+Or in any browser, without the desktop shell (browser mode): one command builds the web UI the
+first time and opens `http://127.0.0.1:8765` (or a free port):
 
 ```powershell
-cd frontend; npm install; npm run build; cd ..
-python -m backend --ui           # serves the app on 127.0.0.1 (8765, or a free port) and opens it
-python -m backend --ui --port 0  # any free port; --no-browser to only print the address
+.\scripts\start.ps1             # Windows  (-Rebuild after pulling new code)
+scripts/start.sh                # Linux / macOS  (--rebuild)
+python -m backend --ui          # the same by hand, once frontend/dist is built
 ```
 
-The page and the API share one loopback origin, and **Power off** in the sidebar stops the engine.
-On a server, bind a network address: `python -m backend --ui --host 0.0.0.0` turns on accounts.
-The console prints a setup code for the first account, which becomes the admin; further accounts
-come from the admin's one-time invite links (Users page). Put a TLS proxy (Caddy, nginx) in front:
-never serve it over plain HTTP on the internet. Regular users' agents run sandboxed with bubblewrap
-(`sudo apt install bubblewrap`, no daemon, next to no memory): they see only their own workspace.
-Until it works, only admins can be invited. Run the backend as an ordinary (non-root) user, with
-PHP, Node and Composer installed on the server itself.
+**Power off** in the sidebar stops the engine. On your own computer there is no login.
+
+### On a server (VPS)
+
+```bash
+git clone <this repo> && cd cat-crew-ai
+sudo scripts/vps/setup.sh --domain cats.example.com --dry-run   # read what it will do
+sudo scripts/vps/setup.sh --domain cats.example.com             # do it
+sudo /opt/cat-crew-ai/scripts/vps/update.sh                     # later: update
+```
+
+It installs the toolchains and bubblewrap, runs the app as its own `catcrew` user behind Caddy with
+HTTPS (`python -m backend --ui --remote` on 127.0.0.1), opens only SSH/HTTP/HTTPS, and prints the
+setup code for the first (admin) account. Further accounts come from the admin's invite links;
+regular users' agents run sandboxed with bubblewrap and see only their own workspace.
 
 Documentation lives in [`docs/`](docs/):
 
