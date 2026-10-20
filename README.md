@@ -17,12 +17,15 @@ Or in any browser, without the desktop shell (browser mode): one command builds 
 first time and opens `http://127.0.0.1:8765` (or a free port):
 
 ```powershell
-.\scripts\start.ps1             # Windows  (-Rebuild after pulling new code)
+.\scripts\start.ps1             # Windows: tray icon, no console (-Rebuild, -Shortcut, -Console)
 scripts/start.sh                # Linux / macOS  (--rebuild)
-python -m backend --ui          # the same by hand, once frontend/dist is built
+python -m backend --ui          # the same by hand in a console, once frontend/dist is built
 ```
 
-**Power off** in the sidebar stops the engine. On your own computer there is no login.
+On Windows it runs in the **tray**: closing the browser tab leaves it running, the cat icon near the
+clock opens it again (double-click or "Open CatCrewAI") and "Stop CatCrewAI" shuts it down; starting
+it again just opens the browser. `-Shortcut` adds a desktop shortcut; logs go to
+`data\logs\backend.log`. **Power off** in the sidebar also stops the engine. No login locally.
 
 ### On a server (VPS)
 

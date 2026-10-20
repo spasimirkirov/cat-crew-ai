@@ -5,6 +5,7 @@
     python -m backend --smoke         # start, check /api/health, exit 0/1
     python -m backend --ui            # browser mode: serve frontend/dist and open it
     python -m backend --ui --port 0   # ... on any free port
+    pythonw -m backend --tray         # ... with a tray icon and no console (scripts/start.ps1 does this)
 
 Browser mode needs the built front end (``cd frontend && npm run build``). With ``--ui`` the
 default port falls back to a free one when 8765 is taken.
@@ -27,6 +28,7 @@ import os
 import sys
 import threading
 import time
+import webbrowser
 
 for _stream in (sys.stdout, sys.stderr):
     try:
@@ -47,6 +49,8 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--ui", action="store_true", default=os.environ.get("CATCREW_UI", "") == "1",
                         help="browser mode: serve the built front end (frontend/dist) and open it")
     parser.add_argument("--no-browser", action="store_true", help="with --ui: do not open a browser tab")
+    parser.add_argument("--tray", action="store_true",
+                        help="browser mode with a system-tray icon (open the UI, stop the engine); for pythonw, no console")
     parser.add_argument("--remote", action="store_true", default=os.environ.get("CATCREW_REMOTE", "") == "1",
                         help="require logins even on loopback: behind a reverse proxy (Caddy, nginx) on the same server")
     parser.add_argument("--log-level", default="warning")
@@ -69,8 +73,6 @@ def free_port(host: str = DEFAULT_HOST, preferred: int = 0) -> int:
 
 def _open_browser(server, url: str) -> None:
     """Open ``url`` once the server accepts connections."""
-    import webbrowser
-
     for _ in range(200):
         if server.started:
             break
@@ -81,8 +83,39 @@ def _open_browser(server, url: str) -> None:
         print(f"[backend] could not open a browser ({exc}); open {url} yourself.", flush=True)
 
 
+def _log_to_file() -> None:
+    """``pythonw`` has no console: keep the engine's output in ``data/logs/backend.log``."""
+    from backend.config import BASE_DIR
+
+    logs = BASE_DIR / "data" / "logs"
+    logs.mkdir(parents=True, exist_ok=True)
+    stream = open(logs / "backend.log", "a", encoding="utf-8", buffering=1)  # noqa: SIM115 - process lifetime
+    sys.stdout = sys.stderr = stream
+
+
+def _open_running(argv_ui: bool) -> bool:
+    """Another engine holds the data folder: in browser mode, open its UI instead of failing."""
+    if not argv_ui:
+        return False
+    from backend import tray
+
+    try:
+        url = tray.url_file().read_text(encoding="utf-8").strip()
+    except OSError:
+        return False
+    if not url:
+        return False
+    print(f"[backend] CatCrewAI is already running: opening {url}", flush=True)
+    webbrowser.open(url)
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse(argv)
+    if args.tray:
+        args.ui = True
+        if sys.stdout is None or os.path.basename(sys.executable).lower().startswith("pythonw"):
+            _log_to_file()
     # Any network address means remote. So does --remote: behind a TLS proxy the server listens on
     # loopback, yet every request comes from the internet.
     remote = args.remote or args.host not in _LOOPBACK
@@ -110,6 +143,8 @@ def main(argv: list[str] | None = None) -> int:
     from backend.services.instance_lock import acquire
 
     if not acquire():
+        if _open_running(args.ui):
+            return 0
         print(
             "[backend] CatCrewAI backend is already running (the desktop app, or another --ui). "
             "Close it first; one engine owns the data folder.",
@@ -169,14 +204,56 @@ def main(argv: list[str] | None = None) -> int:
         print("[backend] Serve it over HTTPS (a TLS proxy such as Caddy in front), never plain HTTP on the internet.", flush=True)
         if auth.needs_setup():
             print(f"[backend] No account yet. Setup code for the first (admin) account: {auth.issue_setup_code()}", flush=True)
+    url = ""
     if ui_dir is not None:
+        from backend import tray
+
         shown = "127.0.0.1" if args.host == "localhost" else f"[{args.host}]" if ":" in args.host else args.host
         url = f"http://{shown}:{args.port}/"
         print(f"[backend] CatCrewAI is open at {url}", flush=True)
+        try:
+            tray.url_file().parent.mkdir(parents=True, exist_ok=True)
+            tray.url_file().write_text(url, encoding="utf-8")
+        except OSError:
+            pass
         if not args.no_browser and not args.smoke:
             threading.Thread(target=_open_browser, args=(server, url), daemon=True).start()
-    server.run()
+    try:
+        if args.tray and not args.smoke:
+            _run_with_tray(server, url)
+        else:
+            server.run()
+    finally:
+        if url:
+            from backend import tray
+
+            try:
+                tray.url_file().unlink()
+            except OSError:
+                pass
     return result["code"]
+
+
+def _run_with_tray(server, url: str) -> None:
+    """The engine on a worker thread, the tray icon on the main thread (macOS needs it there)."""
+    from backend import tray
+
+    missing = tray.available()
+    if missing:
+        print(f"[backend] {missing}", flush=True)
+        server.run()
+        return
+    engine = threading.Thread(target=server.run, name="catcrew-engine")
+    engine.start()
+
+    def stop() -> None:
+        server.should_exit = True
+
+    try:
+        tray.run(url, stop_engine=stop, engine_alive=engine.is_alive)
+    finally:
+        server.should_exit = True
+        engine.join(timeout=30)
 
 
 if __name__ == "__main__":
