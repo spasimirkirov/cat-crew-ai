@@ -15,6 +15,14 @@ def _git_env() -> dict[str, str]:
     env = os.environ.copy()
     env["GIT_TERMINAL_PROMPT"] = "0"
     env["GCM_INTERACTIVE"] = "Never"
+    from backend.services.workspace import is_confined
+
+    if is_confined():
+        # A regular user's repository on a server: its hooks, fsmonitor and ext:: remotes would run
+        # their commands on the server itself, outside the user's container.
+        for i, (key, value) in enumerate((("core.hooksPath", "/dev/null"), ("core.fsmonitor", "false"), ("protocol.ext.allow", "never"))):
+            env[f"GIT_CONFIG_KEY_{i}"], env[f"GIT_CONFIG_VALUE_{i}"] = key, value
+        env["GIT_CONFIG_COUNT"] = "3"
     return env
 
 

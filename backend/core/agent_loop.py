@@ -160,8 +160,10 @@ class _Steerable:
         #: The project's computer for this turn, bound on the turn's own thread (``_bind_turn``);
         #: ``None`` keeps whatever the process has.
         self.folders: list[str] | None = None
-        #: A regular user's turn in remote mode: file tools stay inside ``folders``.
+        #: A regular user's turn in remote mode: file tools stay inside ``folders``, and commands
+        #: run in the user's container (``services/sandbox.py``).
         self.confined = False
+        self.sandbox: Any = None
 
     def _bind_turn(self) -> list[tuple[Callable[[Any], None], Any]]:
         """Bind the per-turn state on this thread; returns what ``_unbind_turn`` resets. Turns of
@@ -172,6 +174,9 @@ class _Steerable:
         if self.folders is not None:
             tokens.append((reset_folders, bind_folders(list(self.folders))))
         tokens.append((reset_confined, bind_confined(self.confined)))
+        from backend.services import sandbox
+
+        tokens.append((sandbox.reset, sandbox.bind(self.sandbox)))
         return tokens
 
     @staticmethod

@@ -27,6 +27,13 @@ Listener = Callable[[str, dict[str, Any]], None]
 def _kill_tree(proc: subprocess.Popen | None) -> None:
     if proc is None or proc.poll() is not None:
         return
+    boxed = getattr(proc, "catcrew_sandbox", None)
+    if boxed is not None:  # a command in a user's container: stop it there, not only the client
+        box, tag = boxed
+        try:
+            box.kill(tag)
+        except Exception:  # noqa: BLE001 - the client is killed below either way
+            pass
     pid = proc.pid
     if os.name == "nt":
         flags = _CREATE_NO_WINDOW
@@ -290,9 +297,13 @@ def _title_for(command: str) -> str:
 
 
 def _popen(command: str, cwd: Path, env: dict[str, str]) -> subprocess.Popen:
+    from backend.services import sandbox
+
+    box = sandbox.current()  # a regular user's turn on a server: the command runs in their container
+    tag = uuid.uuid4().hex[:12] if box is not None else ""
     kwargs: dict[str, Any] = {
-        "args": command,
-        "shell": True,
+        "args": box.exec_argv(command, cwd, tag=tag) if box is not None else command,
+        "shell": box is None,
         "cwd": str(cwd),
         "stdout": subprocess.PIPE,
         "stderr": subprocess.STDOUT,
@@ -307,7 +318,10 @@ def _popen(command: str, cwd: Path, env: dict[str, str]) -> subprocess.Popen:
         kwargs["creationflags"] = _CREATE_NEW_PROCESS_GROUP
     else:
         kwargs["start_new_session"] = True
-    return subprocess.Popen(**kwargs)
+    proc = subprocess.Popen(**kwargs)
+    if box is not None:
+        proc.catcrew_sandbox = (box, tag)  # type: ignore[attr-defined]  # read by _kill_tree
+    return proc
 
 
 def _pump(session: TerminalSession, proc: subprocess.Popen, timeout: float | None) -> int:
@@ -383,7 +397,7 @@ def run_foreground(
     session = hub.create(_title_for(command), str(cwd), command, background=False)
     try:
         proc = _popen(command, cwd, env)
-    except OSError as exc:
+    except (OSError, RuntimeError) as exc:  # RuntimeError: the user's sandbox could not start
         hub.write(session.sid, f"Error running command: {exc}\n")
         hub.close(session.sid, 1)
         return f"Error running command: {exc}"
@@ -410,7 +424,7 @@ def run_background(command: str, cwd: Path, *, env: dict[str, str]) -> str:
     session = hub.create(_title_for(command), str(cwd), command, background=True)
     try:
         proc = _popen(command, cwd, env)
-    except OSError as exc:
+    except (OSError, RuntimeError) as exc:  # RuntimeError: the user's sandbox could not start
         hub.write(session.sid, f"Error running command: {exc}\n")
         hub.close(session.sid, 1)
         return f"Error running command: {exc}"

@@ -172,6 +172,14 @@ def _confined(project_id: str) -> bool:
     return owner is None or not owner.is_admin
 
 
+def _sandbox_for(project_id: str):
+    """The container a regular user's turn runs its commands in (services/sandbox.py)."""
+    from backend.api import access
+    from backend.services import sandbox
+
+    return sandbox.for_user(access.owner_of_project(project_id))
+
+
 class _Pending:
     def __init__(self, kind: str, turn_id: str) -> None:
         self.kind = kind
@@ -585,6 +593,7 @@ class ChatService:
             )
             runner.folders = list(session.get("folders") or [])
             runner.confined = _confined(project_id)
+            runner.sandbox = _sandbox_for(project_id) if runner.confined else None
             turn.runner = runner
             self._announce_started(turn, "Thinking", "")
             activity_board.set_working(ROOM, "thinking", "Thinking…")
@@ -609,6 +618,7 @@ class ChatService:
         )
         runner.folders = list(session.get("folders") or [])
         runner.confined = _confined(project_id)
+        runner.sandbox = _sandbox_for(project_id) if runner.confined else None
         turn.runner = runner
         self._announce_started(turn, "Thinking", "")
         activity_board.set_working(bot_id, "thinking", "Thinking…")

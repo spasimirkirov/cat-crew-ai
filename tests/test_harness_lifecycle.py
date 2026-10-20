@@ -32,7 +32,8 @@ _ECHO = [{"type": "function", "function": {"name": "echo", "parameters": {"type"
 
 def test_builtin_hooks_keep_the_old_order() -> None:
     names = hooks.hook_names()
-    assert names["before_tool_call"][:2] == ["approval", "jev"]
+    # The sandbox guard (remote users) runs before them; the undo copy after every gate.
+    assert names["before_tool_call"][:4] == ["sandbox", "approval", "jev", "checkpoint"]
     assert names["after_tool_call"][:2] == ["offload", "untrusted"]
 
 

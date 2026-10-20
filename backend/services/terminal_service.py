@@ -24,6 +24,7 @@ import shlex
 import shutil
 import subprocess
 import threading
+import uuid
 from pathlib import Path
 from typing import Any, Callable
 
@@ -182,6 +183,8 @@ class TerminalSession:
         self._proc: subprocess.Popen | None = None
         self._closed = False
         self._interrupted = False
+        #: A regular user's terminal on a server: every command runs in their container.
+        self.sandbox: Any = None
 
     # -- state --
 
@@ -241,7 +244,7 @@ class TerminalSession:
                 return
             try:
                 proc = self._spawn(command)
-            except OSError as exc:
+            except (OSError, RuntimeError) as exc:
                 self._send({"type": "output", "stream": "stderr", "data": f"Could not start the shell: {exc}\n"})
                 self._send({"type": "exit", "code": 127, "cwd": str(self.cwd)})
                 return
@@ -251,7 +254,12 @@ class TerminalSession:
         threading.Thread(target=self._pump, args=(proc,), daemon=True, name="catcrew-terminal").start()
 
     def _change_dir(self, target: str) -> None:
-        dest = resolve_cd(self.cwd, target)
+        dest = resolve_cd(self.cwd, target, home=self.root if self.sandbox is not None else None)
+        if dest is not None and self.sandbox is not None:
+            try:
+                dest.relative_to(self.root.resolve())
+            except ValueError:
+                dest = None  # a sandboxed terminal stays inside the user's workspace
         if dest is None:
             self._send({"type": "output", "stream": "stderr", "data": f"cd: no such directory: {target or '~'}\n"})
             self._send({"type": "exit", "code": 1, "cwd": str(self.cwd)})
@@ -260,8 +268,9 @@ class TerminalSession:
         self._send({"type": "exit", "code": 0, "cwd": str(dest)})
 
     def _spawn(self, command: str) -> subprocess.Popen:
+        tag = uuid.uuid4().hex[:12] if self.sandbox is not None else ""
         kwargs: dict[str, Any] = {
-            "args": shell_argv(command, preferred=self.shell),
+            "args": self.sandbox.exec_argv(command, self.cwd, interactive=True, tag=tag) if self.sandbox is not None else shell_argv(command, preferred=self.shell),
             "cwd": str(self.cwd),
             "stdin": subprocess.PIPE,
             "stdout": subprocess.PIPE,
@@ -272,7 +281,10 @@ class TerminalSession:
             kwargs["creationflags"] = _CREATE_NEW_PROCESS_GROUP | _CREATE_NO_WINDOW
         else:
             kwargs["start_new_session"] = True
-        return subprocess.Popen(**kwargs)
+        proc = subprocess.Popen(**kwargs)
+        if self.sandbox is not None:
+            proc.catcrew_sandbox = (self.sandbox, tag)  # type: ignore[attr-defined]  # read by _kill_tree
+        return proc
 
     def _pump(self, proc: subprocess.Popen) -> None:
         budget = [MAX_OUTPUT_CHARS]
@@ -378,7 +390,7 @@ class TerminalService:
         self._sessions: dict[str, TerminalSession] = {}
         self._last_cwd: dict[str, Path] = {}
 
-    def open(self, project_id: str, root: Path, on_event: OnEvent, *, shell: str = "") -> TerminalSession:
+    def open(self, project_id: str, root: Path, on_event: OnEvent, *, shell: str = "", sandbox: Any = None) -> TerminalSession:
         """A fresh session for the project, replacing (and killing) any earlier one.
 
         Reopening a project resumes in the directory the last session ended in, when it still exists.
@@ -395,6 +407,7 @@ class TerminalService:
                 self._sessions.pop(oldest).close()
             session = TerminalSession(project_id, start, on_event, shell=shell)
             session.root = root
+            session.sandbox = sandbox
             self._sessions[project_id] = session
         if old is not None:
             old.close()

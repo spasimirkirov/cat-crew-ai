@@ -576,6 +576,9 @@ def _smoke_report(project: Project, checks: list[dict]) -> str:
     base = _app_url(project)
     if not base or not checks:
         return ""
+    from backend.services import sandbox
+
+    base = sandbox.reachable_url(base).rstrip("/")
     import html
 
     import requests

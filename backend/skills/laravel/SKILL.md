@@ -61,6 +61,13 @@ Seed it in `DatabaseSeeder` with `User::updateOrCreate(['email' => ...], [...])`
   `DB_CONNECTION=sqlite` and an existing `database/database.sqlite`.
 - After `.env` changes: `php artisan config:clear`.
 
+## Environment (a server account, in a container)
+
+- Commands run in your own container; there is no Apache or Laragon. Serve the site with
+  `php artisan serve --host=0.0.0.0 --port=8000` in the background (run it once, then keep working),
+  set `APP_URL=http://127.0.0.1:8000`, and use SQLite (`DB_CONNECTION=sqlite`).
+- `--host=0.0.0.0` matters: the browser and the checks reach your container from outside it.
+
 ## The finish line (run all of these, in this order)
 
 1. `composer install` if `vendor/` is missing; `npm install` if `node_modules/` is missing.

@@ -78,7 +78,10 @@ async def terminal_socket(ws: WebSocket, project_id: str) -> None:
     except OSError:
         await ws.close(code=1011)
         return
-    session = service.open(project.id, root, push)
+    box = None
+    if access.remote_mode() and not access.current_user().is_admin:
+        box = sandbox.for_user(access.current_user().id)  # a regular user's shell: their container
+    session = service.open(project.id, root, push, sandbox=box)
     try:
         await ws.send_json(
             {

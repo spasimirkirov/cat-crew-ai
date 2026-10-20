@@ -68,9 +68,23 @@ class CheckResult:
         return head + "\n" + "\n".join(lines)
 
 
+def _which(name: str) -> str | None:
+    """The program on the host, or its bare name when the turn runs in a sandbox (the image has it)."""
+    from backend.services import sandbox
+
+    return name if sandbox.current() is not None else shutil.which(name)
+
+
 def _run(args: list[str], cwd: Path, timeout: int = _TIMEOUT) -> tuple[int, str]:
+    from backend.services import sandbox
     from backend.tools import subprocess_env
 
+    box = sandbox.current()
+    if box is not None:  # the project's own code (artisan, npm scripts) never runs on the server
+        try:
+            args = box.exec_args(args, cwd)
+        except RuntimeError as exc:
+            return 127, str(exc)
     try:
         done = subprocess.run(
             args,
@@ -161,7 +175,7 @@ def _check_build(folder: Path, result: CheckResult) -> None:
     scripts = data.get("scripts") if isinstance(data, dict) else None
     if not isinstance(scripts, dict) or not scripts.get("build") or not (folder / "node_modules").is_dir():
         return
-    npm = shutil.which("npm") or shutil.which("npm.cmd")
+    npm = _which("npm") or shutil.which("npm.cmd")
     if not npm:
         return
     code, out = _run([npm, "run", "build"], folder, timeout=_BUILD_TIMEOUT)
@@ -197,6 +211,9 @@ def _check_pages(folder: Path, paths: list[str], result: CheckResult) -> None:
     base = app_url(folder)
     if not base:
         return
+    from backend.services import sandbox
+
+    base = sandbox.reachable_url(base).rstrip("/")  # a sandboxed app answers at its container
     import requests
 
     bad = 0
@@ -245,7 +262,7 @@ def _check_python(folder: Path, result: CheckResult, changed: list[Path] | None)
             result.problems.append(f"Python syntax in {_rel(path, folder)}:{exc.lineno}: {exc.msg}")
         except (OSError, ValueError):
             continue
-    ruff = shutil.which("ruff") or next((str(p) for p in (folder / ".venv" / "bin" / "ruff", folder / ".venv" / "Scripts" / "ruff.exe") if p.is_file()), "")
+    ruff = _which("ruff") or next((str(p) for p in (folder / ".venv" / "bin" / "ruff", folder / ".venv" / "Scripts" / "ruff.exe") if p.is_file()), "")
     if ruff and not bad:
         targets = [str(p) for p in files] if changed is not None else ["."]
         code, out = _run([ruff, "check", "--select", "E9,F63,F7,F82", "--output-format", "concise", "--no-cache", *targets], folder)
@@ -280,7 +297,7 @@ def _check_typescript(folder: Path, result: CheckResult, build_runs: bool) -> No
     if not (folder / "tsconfig.json").is_file() or not (folder / "node_modules").is_dir():
         return
     scripts = _scripts(folder)
-    npm = shutil.which("npm") or shutil.which("npm.cmd")
+    npm = _which("npm") or shutil.which("npm.cmd")
     if scripts.get("typecheck") and npm:
         args, label = [npm, "run", "typecheck"], "npm run typecheck"
     elif build_runs and "tsc" in str(scripts.get("build") or ""):
@@ -301,7 +318,7 @@ def _check_typescript(folder: Path, result: CheckResult, build_runs: bool) -> No
 
 
 def _check_go(folder: Path, result: CheckResult) -> None:
-    go = shutil.which("go")
+    go = _which("go")
     if not go or not (folder / "go.mod").is_file():
         return
     code, out = _run([go, "build", "./..."], folder, timeout=_BUILD_TIMEOUT)
@@ -325,7 +342,7 @@ def check_project(folder: str | Path, *, paths: list[str] | None = None, changed
         return exts is None or any(k in exts for k in kinds)
 
     result = CheckResult()
-    php = shutil.which("php")
+    php = _which("php")
     laravel = (root / "artisan").is_file()
     if php and (laravel or (root / "composer.json").is_file()) and wants(".php"):
         _check_php(root, php, result)

@@ -201,7 +201,7 @@ def test_projects_made_before_remote_access_go_to_the_first_admin(remote) -> Non
     assert [p["id"] for p in remote.get("/api/projects").json()] == ["old"]
 
 
-def test_events_of_another_users_project_never_reach_a_socket() -> None:
+def test_events_of_another_users_project_never_reach_a_socket(isolated) -> None:
     import asyncio
 
     from backend.api.events import Client

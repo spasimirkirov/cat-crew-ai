@@ -132,6 +132,12 @@ def _jev(ctx: ToolCallContext) -> str | None:
     return jev_gatekeeper.guard_tool_call(ctx.name, ctx.arguments, messages=ctx.messages, goal=ctx.goal)
 
 
+def _sandbox(ctx: ToolCallContext) -> str | None:
+    from backend.services import sandbox
+
+    return sandbox.guard_tool(ctx.name, ctx.arguments)
+
+
 def _checkpoint(ctx: ToolCallContext) -> str | None:
     from backend.harness import checkpoints
 
@@ -154,6 +160,8 @@ def _untrusted(ctx: ToolCallContext, result: str) -> str:
     return untrusted.mark_untrusted(ctx.name, result)
 
 
+# First: a regular user's turn on a server (services/sandbox.py) never reaches the admin's tools.
+register_before_tool("sandbox", _sandbox, order=5)
 register_before_tool("approval", _approval, order=10)
 register_before_tool("jev", _jev, order=20)
 # Last, so only a call that will really run saves its undo copy (harness/checkpoints.py).
