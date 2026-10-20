@@ -12,6 +12,7 @@ import { useMatrixAgents } from "../components/matrix/useMatrixAgents";
 import { EmptyState, ErrorNote, PageHeader, Spinner } from "../components/Ui";
 import { api } from "../lib/api";
 import type { Tool } from "../lib/types";
+import { useIsAdmin } from "../state/auth";
 
 // Closures (not `api.tools` itself) so every call resolves the method at call time.
 const toolsApi: MatrixApi<Tool> = {
@@ -22,6 +23,7 @@ type ModalKind = "register" | "import" | null;
 
 export function ToolsPage() {
   const agents = useMatrixAgents();
+  const admin = useIsAdmin(); // registering a tool is a global setting
   const { items, loading, loadError, reload } = useAssignmentMatrix(toolsApi);
 
   const [query, setQuery] = useState("");
@@ -47,6 +49,7 @@ export function ToolsPage() {
         title="Tools"
         subtitle="Python functions each cat ships with. A tool you register goes to every cat."
         actions={
+          admin && (
           <>
             <button className="btn" onClick={() => setModal("import")}>
               <FontAwesomeIcon icon={faDownload} />
@@ -57,6 +60,7 @@ export function ToolsPage() {
               Register tool
             </button>
           </>
+          )
         }
       />
 

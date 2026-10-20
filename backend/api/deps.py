@@ -16,10 +16,24 @@ def chat_service(request: Request) -> ChatService:
 
 
 def need_project(project_id: str) -> Project:
+    """The project, or 404 -- also when it belongs to another user (remote mode): another user's
+    project is indistinguishable from one that does not exist."""
+    from backend.api import access
+
     project = get_project(project_id)
-    if project is None:
+    if project is None or not access.owns(project):
         raise HTTPException(404, f"Unknown project {project_id!r}.")
     return project
+
+
+def owns_project_id(project_id: str) -> bool:
+    """Is ``project_id`` one of the current user's projects (always true in local mode)?"""
+    from backend.api import access
+
+    if not access.remote_mode():
+        return True
+    project = get_project(project_id) if project_id else None
+    return project is not None and access.owns(project)
 
 
 def need_bot(bot_id: str) -> Bot:

@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 
 from backend import __version__
-from backend.api import deps, views
+from backend.api import access, deps, views
 from backend.platform.registry import load_registry
 
 router = APIRouter(prefix="/api", tags=["meta"])
@@ -21,12 +21,13 @@ def bootstrap(request: Request) -> dict:
     assignments = views.Assignments.load()
     agents = [views.agent_view(b, assignments=assignments) for b in registry.bots.values()]
     ids = [a["id"] for a in agents] + [views.ROOM_ID]
+    turns = [t for t in deps.chat_service(request).current_turns() if deps.owns_project_id(str(t.get("project_id") or ""))]
     return {
         "agents": agents,
-        "projects": [views.project_view(p) for p in registry.projects.values()],
+        "projects": [views.project_view(p) for p in registry.projects.values() if access.owns(p)],
         "activity": [views.activity_view(i) for i in ids],
-        "current_turn": deps.chat_service(request).current_turn(),
-        "turns": deps.chat_service(request).current_turns(),
+        "current_turn": next(reversed(turns), None),
+        "turns": turns,
     }
 
 

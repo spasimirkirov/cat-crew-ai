@@ -16,6 +16,7 @@ import { EmptyState, ErrorNote, PageHeader, Spinner } from "../components/Ui";
 import { api } from "../lib/api";
 import type { Skill, SkillType } from "../lib/types";
 import { useStore } from "../state/store";
+import { useIsAdmin } from "../state/auth";
 
 // Closures (not `api.skills` itself) so every call resolves the method at call time.
 const skillsApi: MatrixApi<Skill> = {
@@ -35,6 +36,7 @@ type ModalKind = "new" | "import" | null;
 
 export function SkillsPage() {
   const agents = useMatrixAgents();
+  const admin = useIsAdmin(); // adding or importing a playbook is a global setting
   const { items, loading, loadError, reload } = useAssignmentMatrix(skillsApi);
 
   const [query, setQuery] = useState("");
@@ -101,6 +103,7 @@ export function SkillsPage() {
         title="Skills"
         subtitle="Playbooks each cat ships with. A skill you add goes to the cats its target roles name, or to every cat."
         actions={
+          admin && (
           <>
             <button className="btn" onClick={() => setModal("import")}>
               <FontAwesomeIcon icon={faDownload} />
@@ -111,11 +114,12 @@ export function SkillsPage() {
               New skill
             </button>
           </>
+          )
         }
       />
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 px-8 pb-6 pt-4">
-        <ProposalsPanel proposals={proposals} agents={agents} onApprove={approve} onDismiss={dismiss} />
+        {admin && <ProposalsPanel proposals={proposals} agents={agents} onApprove={approve} onDismiss={dismiss} />}
 
         {notice && (
           <div role="status" className="flex items-center gap-2 rounded-lg border border-emerald/30 bg-emerald/10 px-3 py-2 text-sm text-emerald">

@@ -41,6 +41,18 @@ loopback origin next to the Tauri and Vite ones.
 
 Threads on the backend: the uvicorn event loop (async routes and the WebSocket hub); FastAPI's worker pool for synchronous routes; one turn thread (`ChatService` runs a single turn at a time, and queues the next message); the delegation engine's asyncio thread; and `asyncio.to_thread` workers for each specialist run. Nothing that blocks (an LLM call, a shell command, a SQLite write) runs on the event loop.
 
+**Remote mode (accounts).** Bound to a non-loopback address (`python -m backend --ui --host 0.0.0.0`),
+`api/access.py` turns on: `AuthMiddleware` signs every request in from the session cookie
+(`services/auth.py`: scrypt passwords, hashed session and invite tokens, login throttling, a
+separate `data/platform/auth.db`), refuses admin-only routes (`ADMIN_ONLY`) to regular users and
+another user's project paths with `404`. The first account needs the setup code printed in the
+console and becomes the admin; later accounts come from one-time admin invites. Projects carry
+`owner_id`; lists, turns, approvals, diffs and `/ws/events` (`Client.owner_id`) are filtered by it;
+folders live under `data/users/<id>/workspace/`. A regular user's turns are *confined*
+(`services/workspace.bind_confined`): file tools reach only the project's folders, never the
+install tree. Shell isolation for regular users (a container per user) is `services/sandbox.py`;
+until it reports ready, user invites are refused and their terminal stays closed.
+
 ## 2. The API and the live event stream
 
 REST answers "what is the state now"; the WebSocket answers "what just changed". Every writer of live state publishes to the in-process bus (`platform/bus.py`); the API subscribes once and fans events out.

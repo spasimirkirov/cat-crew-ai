@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 from backend import __version__
 from backend.api import terminal_ws, ws
 from backend.api.events import EventHub
-from backend.api.routes import agents, chat, checkpoints, jev, keys, mcp, meta, models, openrouter, projects, skills, tasks, telemetry, tools
+from backend.api.routes import agents, auth, chat, checkpoints, jev, keys, mcp, meta, models, openrouter, projects, skills, tasks, telemetry, tools
 from backend.api.security import LocalOnlyMiddleware, allowed_origins
 from backend.core.chat_service import ChatError, ChatService
 
@@ -91,7 +91,13 @@ def _shutdown_runtimes() -> None:
         print(f"[app] terminal close failed: {exc}", flush=True)
 
 
-def create_app(*, chat_service: ChatService | None = None, startup: bool = True, ui_dir: Path | None = None) -> FastAPI:
+def create_app(
+    *, chat_service: ChatService | None = None, startup: bool = True, ui_dir: Path | None = None, remote: bool = False
+) -> FastAPI:
+    """``remote``: bound to a network address, so every request needs a login (``api/access.py``)."""
+    from backend.api import access
+
+    access.configure(remote=remote)
     hub = EventHub()
 
     @asynccontextmanager
@@ -120,6 +126,8 @@ def create_app(*, chat_service: ChatService | None = None, startup: bool = True,
     app.state.server = None
 
     origins = allowed_origins()
+    # Innermost: sign the request in (remote mode) and refuse what this user may not do.
+    app.add_middleware(access.AuthMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
@@ -128,13 +136,13 @@ def create_app(*, chat_service: ChatService | None = None, startup: bool = True,
         max_age=600,
     )
     # Outermost: reject a bad Host/Origin before anything (CORS included) sees it.
-    app.add_middleware(LocalOnlyMiddleware, extra_origins=origins)
+    app.add_middleware(LocalOnlyMiddleware, extra_origins=origins, remote=remote)
 
     @app.exception_handler(ChatError)
     async def _chat_error(_request: Request, exc: ChatError) -> JSONResponse:
         return JSONResponse({"detail": str(exc)}, status_code=exc.status)
 
-    for module in (meta, projects, agents, tasks, checkpoints, chat, skills, tools, models, keys, telemetry, mcp, jev, openrouter):
+    for module in (meta, auth, projects, agents, tasks, checkpoints, chat, skills, tools, models, keys, telemetry, mcp, jev, openrouter):
         app.include_router(module.router)
     app.include_router(ws.router)
     app.include_router(terminal_ws.router)

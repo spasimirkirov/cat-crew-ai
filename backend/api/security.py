@@ -59,15 +59,29 @@ def origin_allowed(origin: str | None, allowed: list[str], host: str = "") -> bo
     return bool(host) and host_allowed(host) and origin.lower() == f"http://{host.strip().lower()}"
 
 
+def remote_origin_allowed(origin: str | None, allowed: list[str], host: str) -> bool:
+    """Remote mode: the page's own origin (http or https behind a TLS proxy) or the allow-list."""
+    if origin is None:
+        return True
+    origin = origin.rstrip("/").lower()
+    if origin in allowed:
+        return True
+    return origin in (f"http://{host.strip().lower()}", f"https://{host.strip().lower()}")
+
+
 ASGIApp = Callable[[dict, Callable[[], Awaitable[dict]], Callable[[dict], Awaitable[None]]], Awaitable[None]]
 
 
 class LocalOnlyMiddleware:
     """Pure-ASGI middleware (works for ``http`` and ``websocket`` scopes)."""
 
-    def __init__(self, app: ASGIApp, *, extra_origins: list[str] | None = None) -> None:
+    def __init__(self, app: ASGIApp, *, extra_origins: list[str] | None = None, remote: bool = False) -> None:
         self.app = app
         self.allowed = list(dict.fromkeys([*allowed_origins(), *(extra_origins or [])]))
+        # Remote mode (api/access.py): any Host listed in CATCREW_ALLOWED_HOSTS, or any at all when
+        # none is listed (every request needs a login there); Origin must still be the page's own.
+        self.remote = remote
+        self.hosts = {h.strip().lower() for h in os.environ.get("CATCREW_ALLOWED_HOSTS", "").split(",") if h.strip()}
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
         if scope["type"] not in ("http", "websocket"):
@@ -75,9 +89,15 @@ class LocalOnlyMiddleware:
             return
         headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope.get("headers", [])}
         reason = ""
-        if not host_allowed(headers.get("host", "")):
+        host = headers.get("host", "")
+        if self.remote:
+            if not host or (self.hosts and _host_only(host) not in self.hosts):
+                reason = "Host not allowed"
+            elif not remote_origin_allowed(headers.get("origin"), self.allowed, host):
+                reason = "Origin not allowed"
+        elif not host_allowed(host):
             reason = "Host not allowed"
-        elif not origin_allowed(headers.get("origin"), self.allowed, headers.get("host", "")):
+        elif not origin_allowed(headers.get("origin"), self.allowed, host):
             reason = "Origin not allowed"
         if not reason:
             await self.app(scope, receive, send)

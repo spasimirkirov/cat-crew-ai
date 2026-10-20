@@ -6,6 +6,7 @@ import {
   faPlug,
   faPuzzlePiece,
   faScrewdriverWrench,
+  faUsers,
 } from "@fortawesome/free-solid-svg-icons";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -13,18 +14,23 @@ import clsx from "clsx";
 import { useEffect } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
+import { useAuth, useIsAdmin } from "../state/auth";
 import { useModelHealth } from "../state/modelHealth";
+import { AccountMenu } from "./AccountMenu";
 import { useStore } from "../state/store";
 import { ModelNotice } from "./models/ModelNotice";
 import { PowerOff } from "./PowerOff";
 
-const NAV: { to: string; label: string; icon: IconDefinition; end?: boolean }[] = [
+// ``admin``: global settings, only for admins on a server (everyone is the admin locally).
+// ``remote``: only on a server.
+const NAV: { to: string; label: string; icon: IconDefinition; end?: boolean; admin?: boolean; remote?: boolean }[] = [
   { to: "/", label: "Home", icon: faHouse, end: true },
   { to: "/skills", label: "Skills", icon: faPuzzlePiece },
   { to: "/tools", label: "Tools", icon: faScrewdriverWrench },
   { to: "/agents", label: "Agents", icon: faPaw },
-  { to: "/models", label: "Models", icon: faMicrochip },
-  { to: "/integrations", label: "MCP Tools & Integrations", icon: faPlug },
+  { to: "/models", label: "Models", icon: faMicrochip, admin: true },
+  { to: "/integrations", label: "MCP Tools & Integrations", icon: faPlug, admin: true },
+  { to: "/users", label: "Users", icon: faUsers, admin: true, remote: true },
 ];
 
 const CONNECTION: Record<string, { label: string; dot: string }> = {
@@ -39,9 +45,12 @@ export function Shell() {
   const conn = CONNECTION[connection] ?? CONNECTION.connecting;
   const modelIssues = useModelHealth((s) => s.report?.issues.length ?? 0);
   const startupCheck = useModelHealth((s) => s.startup);
+  const admin = useIsAdmin();
+  const remote = useAuth((s) => s.mode === "remote");
+  const nav = NAV.filter((item) => (!item.admin || admin) && (!item.remote || remote));
   useEffect(() => {
-    void startupCheck(); // once per session; opens the model notice when a chosen model is gone
-  }, [startupCheck]);
+    if (admin) void startupCheck(); // once per session; opens the model notice when a chosen model is gone
+  }, [startupCheck, admin]);
 
   return (
     <div className="flex h-full w-full bg-bg text-ink">
@@ -49,7 +58,7 @@ export function Shell() {
         <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan/30 to-violet/30 text-lg" title="CatCrewAI">
           <FontAwesomeIcon icon={faCat} className="text-cyan" aria-hidden />
         </div>
-        {NAV.map((item) => (
+        {nav.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -85,7 +94,8 @@ export function Shell() {
             <span className={clsx("h-2 w-2 rounded-full", conn.dot)} />
             <span className="text-[9px] uppercase tracking-wider text-muted">{connection === "open" ? "live" : connection === "down" ? "off" : "…"}</span>
           </div>
-          <PowerOff />
+          {remote && <AccountMenu />}
+          {admin && <PowerOff />}
         </div>
       </nav>
       <main className="min-w-0 flex-1 overflow-hidden">

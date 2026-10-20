@@ -134,6 +134,8 @@ class Project:
     folders: list[str] = field(default_factory=list)
     state: dict[str, Any] = field(default_factory=dict)
     events: list[ProjectEvent] = field(default_factory=list)
+    # Remote mode (api/access.py): the user it belongs to. "" for projects made on the desktop.
+    owner_id: str = ""
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> Project:
@@ -158,6 +160,7 @@ class Project:
             folders=folders,
             state=dict(state),
             events=events,
+            owner_id=str(raw.get("owner_id") or "").strip(),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -169,6 +172,7 @@ class Project:
             "folders": list(self.folders),
             "state": dict(self.state),
             "events": [item.to_dict() for item in self.events],
+            "owner_id": self.owner_id,
         }
 
     def remember(

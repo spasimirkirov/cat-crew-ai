@@ -22,7 +22,10 @@ python -m backend --ui --port 0  # any free port; --no-browser to only print the
 ```
 
 The page and the API share one loopback origin, and **Power off** in the sidebar stops the engine.
-Browser mode is still loopback-only; it is the first step towards running CatCrewAI on a server.
+On a server, bind a network address: `python -m backend --ui --host 0.0.0.0` turns on accounts.
+The console prints a setup code for the first account, which becomes the admin; further accounts
+come from the admin's one-time invite links (Users page). Put a TLS proxy (Caddy, nginx) in front:
+never serve it over plain HTTP on the internet.
 
 Documentation lives in [`docs/`](docs/):
 

@@ -124,6 +124,32 @@ interface Tool {                 // Executable (Letta-style Python function tool
 | GET | `/api/bootstrap` | – | `{agents:Agent[], projects:Project[], activity:Activity[], current_turn:Turn\|null, turns:Turn[]}` (one call at app start; `turns` lists every running turn, one per project lane, and `current_turn` is the most recently started of them; `agents` are the specialist cats only; `activity` also includes the `crew` entry) |
 | POST | `/api/shutdown` | – | `202` graceful exit (stops the ComfyUI child, releases the instance lock). Called by the desktop shell when the app really quits (tray "Quit CatCrewAI" or the sidebar Power Off button, i.e. the `quit_app` Tauri command) — closing the window with X only hides it to the system tray. |
 
+### Accounts (remote mode only)
+On loopback (the desktop app, `--ui`) there is no login: every request is the local admin and these
+routes answer `409` except `status`. Bound to a network address (`--host 0.0.0.0`) every `/api` and
+`/ws` request needs the `catcrew_session` cookie (HttpOnly, SameSite=Lax, Secure behind HTTPS):
+`401` without it (WebSocket close `4401`), `403` for a regular user on an admin route (close `4403`),
+`404` for another user's project (any `/api/projects/{pid}/...` or `/ws/projects/{pid}/...`).
+Admin-only: `/api/keys`, `/api/users`, `/api/mcp`, `/api/jev`, `/api/openrouter`, `/api/shutdown`,
+`/api/tools/available`, and every write under `/api/models`, `/api/hosts`, `/api/skills`, `/api/tools`
+(`api/access.ADMIN_ONLY`).
+
+| Method | Path | Body | Returns |
+| --- | --- | --- | --- |
+| GET | `/api/auth/status` | – | `{mode: "local"\|"remote", needs_setup, user: User\|null}` |
+| POST | `/api/auth/register` | `{username, password, setup_code}` | first account only, becomes admin; the setup code is printed in the server console. `403` once an account exists |
+| POST | `/api/auth/login` | `{username, password}` | `{user}` + cookie; `401` wrong, `429` after 5 failures in 5 min |
+| POST | `/api/auth/logout` | – | `204` |
+| GET / POST | `/api/auth/invite/{token}` | – / `{username, password}` | invite info / `{user}` + cookie (one-time, 72 h) |
+| POST | `/api/auth/password` | `{old, new}` | `204`; ends every session of the account |
+| GET | `/api/users` | – | `{users: User[], invites[], sandbox: {ready, detail}}` (admin) |
+| POST | `/api/users/invites` | `{role: "user"\|"admin", hours?}` | `201 {token, url, role}`; a `user` invite is `409` until the agent sandbox is ready |
+| PATCH / DELETE | `/api/users/{id}` | `{role}` / – | the last admin cannot be demoted or removed |
+
+`User`: `{id, username, role: "admin"|"user", created_at}`. Each user sees only their own projects,
+turns, approvals, diffs and events; a project's folder lives in `data/users/<user id>/workspace/`
+(created for them when none is given), and the folder picker stays inside it.
+
 ### Projects (Home = launcher: list / create / open / choose a workspace. No tasks here.)
 | Method | Path | Body | Returns |
 | --- | --- | --- | --- |

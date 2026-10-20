@@ -9,7 +9,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
-from backend.api import deps, views
+from backend.api import access, deps, views
 from backend.core.chat_service import ROOM, ChatError
 from backend.platform.orchestrator import is_room_id
 from backend.platform import bus
@@ -52,15 +52,36 @@ class RosterAdd(BaseModel):
 
 
 def _prepare_folder(raw: str) -> str:
+    root = access.user_root()
+    if root is not None:
+        # Remote mode: a project's computer is a folder inside the user's own workspace.
+        target = Path(raw).expanduser()
+        target = (root / target) if not target.is_absolute() else target
+        if not access.inside(target, root):
+            raise HTTPException(422, f"Pick a folder inside your workspace ({root}).")
+        raw = str(target)
     try:
         return str(prepare_computer_folder(raw))
     except (OSError, ValueError) as exc:
         raise HTTPException(422, str(exc)) from exc
 
 
+def _default_folder(name: str) -> str:
+    """Remote mode gives every new project a folder in the user's workspace: there is no desktop
+    folder to open, and a project without one would share the scratch area."""
+    root = access.user_root()
+    assert root is not None
+    base = re.sub(r"[^A-Za-z0-9_-]+", "-", name).strip("-").lower() or "project"
+    target, n = root / base, 2
+    while target.exists():
+        target, n = root / f"{base}-{n}", n + 1
+    target.mkdir(parents=True)
+    return str(target)
+
+
 @router.get("/projects")
 def list_projects() -> list[dict]:
-    return [views.project_view(p) for p in load_registry().projects.values()]
+    return [views.project_view(p) for p in load_registry().projects.values() if access.owns(p)]
 
 
 @router.post("/projects", status_code=201)
@@ -74,6 +95,8 @@ def create_project(body: ProjectCreate, request: Request) -> dict:
             path = _prepare_folder(raw)
             if path not in folders:
                 folders.append(path)
+    if not folders and access.user_root() is not None:
+        folders.append(_default_folder(name))
     bot_ids: list[str] = []
     for bid in body.bot_ids:
         if get_bot(bid) is None:
@@ -87,6 +110,7 @@ def create_project(body: ProjectCreate, request: Request) -> dict:
         bot_ids=bot_ids,
         folders=folders,
         state={"created_at": datetime.now(timezone.utc).isoformat(timespec="seconds")},
+        owner_id=access.current_user().id if access.remote_mode() else "",
     )
     save_project(project)
     deps.ledger_project(project)
@@ -207,7 +231,17 @@ def remove_from_roster(project_id: str, bot_id: str) -> Response:
 
 @router.get("/workspaces/browse")
 def browse(path: str = Query(default="")) -> dict:
-    """List sub-folders for the launcher's folder picker (directories only)."""
+    """List sub-folders for the launcher's folder picker (directories only). Remote mode: only
+    inside the user's own workspace."""
+    root = access.user_root()
+    if root is not None:
+        target = Path(path).expanduser() if path else root
+        if not access.inside(target, root):
+            target = root
+        listing = _listing(target.resolve())
+        if listing["path"] == str(root):
+            listing["parent"] = None
+        return listing
     if not path:
         if os.name == "nt":
             drives = [f"{d}:\\" for d in string.ascii_uppercase if Path(f"{d}:\\").exists()]
@@ -219,6 +253,10 @@ def browse(path: str = Query(default="")) -> dict:
         target = Path.home()
     else:
         target = Path(path).expanduser()
+    return _listing(target)
+
+
+def _listing(target: Path) -> dict:
     try:
         target = target.resolve()
         if not target.is_dir():
@@ -272,6 +310,9 @@ def create_folder(body: NewFolder) -> dict:
     if not body.parent.strip():
         raise HTTPException(422, "Open a drive or a folder first, then create the new folder inside it.")
     parent = Path(body.parent).expanduser()
+    root = access.user_root()
+    if root is not None and not access.inside(parent, root):
+        raise HTTPException(403, "You can only create folders inside your workspace.")
     try:
         parent = parent.resolve()
         if not parent.is_dir():

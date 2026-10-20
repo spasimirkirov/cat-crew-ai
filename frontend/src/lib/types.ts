@@ -597,3 +597,32 @@ export type ServerEvent =
   | WireEvent<"skill.proposed", { skill: Skill; agent_id: string; task_id: string }>
   | WireEvent<"project.changed", { project: Project }>
   | WireEvent<"context.usage", ContextUsage>;
+
+export interface AuthUser {
+  id: string;
+  username: string;
+  role: "admin" | "user";
+  created_at: number;
+}
+
+/** "local": the desktop app, no login. "remote": a server, everyone signs in. */
+export interface AuthStatus {
+  mode: "local" | "remote";
+  needs_setup: boolean;
+  user: AuthUser | null;
+}
+
+export interface InviteRow {
+  role: string;
+  created_by: string;
+  created_at: number;
+  expires_at: number;
+  used_by: string;
+  used_at: number;
+}
+
+export interface UsersPayload {
+  users: AuthUser[];
+  invites: InviteRow[];
+  sandbox: { ready: boolean; detail: string };
+}

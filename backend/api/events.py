@@ -32,13 +32,24 @@ def _ts_iso(ts: float) -> str:
 
 
 class Client:
-    def __init__(self, loop: asyncio.AbstractEventLoop, project_id: str | None) -> None:
+    def __init__(self, loop: asyncio.AbstractEventLoop, project_id: str | None, owner_id: str | None = None) -> None:
         self.loop = loop
         self.project_id = project_id or None
+        # Remote mode: the signed-in user. Events of a project they do not own never reach them,
+        # whatever they subscribe to; ``None`` (local mode) sees everything.
+        self.owner_id = owner_id
         self.queue: asyncio.Queue[bus.Event | None] = asyncio.Queue(maxsize=QUEUE_MAX)
         self.overflowed = False
 
     def wants(self, event: bus.Event) -> bool:
+        if self.owner_id is not None:
+            # bot.activity carries its project in data, not on the envelope.
+            pid = event.project_id or str((event.data or {}).get("project_id") or "")
+            if pid:
+                from backend.api.access import owner_of_project
+
+                if owner_of_project(pid) != self.owner_id:
+                    return False
         # bot.activity (and any other project-less event) is global -> everyone gets it.
         return self.project_id is None or not event.project_id or event.project_id == self.project_id
 

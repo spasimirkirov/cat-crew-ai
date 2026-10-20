@@ -14,9 +14,12 @@ router = APIRouter()
 
 @router.websocket("/ws/events")
 async def events_socket(ws: WebSocket, project_id: str | None = None) -> None:
+    from backend.api import access
+
     hub: EventHub = ws.app.state.hub
     await ws.accept()
-    client = Client(asyncio.get_running_loop(), project_id)
+    owner = access.current_user().id if access.remote_mode() else None  # signed in by AuthMiddleware
+    client = Client(asyncio.get_running_loop(), project_id, owner)
     hub.register(client)
     try:
         await ws.send_json(hello_envelope(0))

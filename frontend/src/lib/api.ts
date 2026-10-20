@@ -3,6 +3,8 @@
 import { apiUrl } from "./config";
 import type {
   Agent,
+  AuthStatus,
+  AuthUser,
   Activity,
   AvailableTool,
   Bootstrap,
@@ -34,6 +36,7 @@ import type {
   Tool,
   Turn,
   Telemetry,
+  UsersPayload,
 } from "./types";
 
 export class ApiError extends Error {
@@ -80,9 +83,16 @@ export async function request<T>(method: string, path: string, body?: unknown, s
       payload = text;
     }
   }
-  if (!res.ok) throw new ApiError(res.status, detailOf(payload, `Request failed (${res.status})`));
+  if (!res.ok) {
+    // Remote mode: the session ended (signed out elsewhere, expired). The auth gate shows the login.
+    if (res.status === 401 && !path.startsWith("/api/auth/")) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+    throw new ApiError(res.status, detailOf(payload, `Request failed (${res.status})`));
+  }
   return payload as T;
 }
+
+/** Fired on a 401 outside the auth routes (see ``state/auth.ts``). */
+export const UNAUTHORIZED_EVENT = "catcrew:unauthorized";
 
 const get = <T>(p: string, signal?: AbortSignal) => request<T>("GET", p, undefined, signal);
 const post = <T>(p: string, b?: unknown) => request<T>("POST", p, b ?? {});
@@ -102,6 +112,25 @@ export interface NewProject {
 export const api = {
   health: () => get<{ status: string; version: string; busy: boolean }>("/api/health"),
   bootstrap: () => get<Bootstrap>("/api/bootstrap"),
+
+  auth: {
+    status: () => get<AuthStatus>("/api/auth/status"),
+    register: (username: string, password: string, setup_code: string) =>
+      post<{ user: AuthUser }>("/api/auth/register", { username, password, setup_code }),
+    login: (username: string, password: string) => post<{ user: AuthUser }>("/api/auth/login", { username, password }),
+    logout: () => post<void>("/api/auth/logout", {}),
+    invite: (token: string) => get<{ role: string; expires_at: number }>(`/api/auth/invite/${enc(token)}`),
+    acceptInvite: (token: string, username: string, password: string) =>
+      post<{ user: AuthUser }>(`/api/auth/invite/${enc(token)}`, { username, password }),
+    changePassword: (old: string, next: string) => post<void>("/api/auth/password", { old, new: next }),
+  },
+
+  users: {
+    list: () => get<UsersPayload>("/api/users"),
+    invite: (role: "user" | "admin") => post<{ token: string; url: string; role: string }>("/api/users/invites", { role }),
+    setRole: (id: string, role: "user" | "admin") => patch<AuthUser>(`/api/users/${enc(id)}`, { role }),
+    remove: (id: string) => del(`/api/users/${enc(id)}`),
+  },
   /** Stop the engine (browser mode's Power off; the desktop shell has its own quit command). */
   shutdown: () => post<{ status: string }>("/api/shutdown", {}),
 

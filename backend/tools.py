@@ -227,7 +227,12 @@ def _clip(text: str, limit: int = TOOL_RESULT_LIMIT) -> str:
 
 
 def _allowed_roots() -> list[Path]:
-    roots = [BASE_DIR.resolve(), *current_folders()]
+    from backend.services.workspace import is_confined
+
+    # A regular user's turn in remote mode never reaches the install tree (services/workspace.py).
+    roots = [*current_folders()] if is_confined() else [BASE_DIR.resolve(), *current_folders()]
+    if not roots:
+        roots = [current_workspace().resolve()]
     # unique
     out: list[Path] = []
     for root in roots:
@@ -331,7 +336,7 @@ def resolve_user_path(raw: str) -> Path:
     in_catcrew = workspace == base
     # Self-modify fallback: an existing CatCrewAI backend/ file, never shadowing a project that has
     # a backend/ folder of its own (PHP / Node / Python projects very often do).
-    catcrew_fallback = catcrew_pkg and not (workspace / "backend").is_dir()
+    catcrew_fallback = catcrew_pkg and not (workspace / "backend").is_dir() and base in roots
     ordered = [workspace, *[r for r in roots if r not in (workspace, base)]]
     if catcrew_fallback and not in_catcrew:
         ordered.append(base)

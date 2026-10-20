@@ -161,6 +161,17 @@ class Turn:
         }
 
 
+def _confined(project_id: str) -> bool:
+    """Remote mode, a regular user's project: its turns' file tools stay in its folders."""
+    from backend.api import access
+    from backend.services import auth
+
+    if not access.remote_mode():
+        return False
+    owner = auth.get_user(access.owner_of_project(project_id))
+    return owner is None or not owner.is_admin
+
+
 class _Pending:
     def __init__(self, kind: str, turn_id: str) -> None:
         self.kind = kind
@@ -195,6 +206,15 @@ class ChatService:
     def current_turns(self) -> list[dict[str, Any]]:
         with self._lock:
             return [t.public() for t in sorted(self._turns.values(), key=lambda t: t.started_at)]
+
+    def project_of(self, item_id: str) -> str | None:
+        """The project a running turn, or a pending approval / question, belongs to (``None``
+        when there is no such item). The API checks it before acting on an id alone."""
+        with self._lock:
+            turn = self._find(item_id)
+            if turn is None and item_id in self._pending:
+                turn = self._find(self._pending[item_id].turn_id)
+            return turn.project_id if turn is not None else None
 
     def turn_for_project(self, project_id: str) -> dict[str, Any] | None:
         with self._lock:
@@ -564,6 +584,7 @@ class ChatService:
                 reporter=(intent.reporter if intent is not None else ""),
             )
             runner.folders = list(session.get("folders") or [])
+            runner.confined = _confined(project_id)
             turn.runner = runner
             self._announce_started(turn, "Thinking", "")
             activity_board.set_working(ROOM, "thinking", "Thinking…")
@@ -587,6 +608,7 @@ class ChatService:
             bot_id=bot_id,
         )
         runner.folders = list(session.get("folders") or [])
+        runner.confined = _confined(project_id)
         turn.runner = runner
         self._announce_started(turn, "Thinking", "")
         activity_board.set_working(bot_id, "thinking", "Thinking…")

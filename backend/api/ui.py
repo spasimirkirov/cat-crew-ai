@@ -18,11 +18,11 @@ from backend.config import BASE_DIR
 FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
 
 
-def ui_ready(dist: Path = FRONTEND_DIST) -> bool:
-    return (dist / "index.html").is_file()
+def ui_ready(dist: Path | None = None) -> bool:
+    return ((dist or FRONTEND_DIST) / "index.html").is_file()
 
 
-def mount_ui(app: FastAPI, dist: Path = FRONTEND_DIST) -> None:
+def mount_ui(app: FastAPI, dist: Path | None = None) -> None:
     """Serve ``dist`` at ``/``. Mounted last, so every ``/api`` and ``/ws`` route wins over it.
     The app routes with a hash (``/#/project/...``), so no per-path fallback is needed."""
-    app.mount("/", StaticFiles(directory=str(dist), html=True), name="ui")
+    app.mount("/", StaticFiles(directory=str(dist or FRONTEND_DIST), html=True), name="ui")

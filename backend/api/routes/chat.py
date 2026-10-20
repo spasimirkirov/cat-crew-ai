@@ -72,19 +72,32 @@ def retry_turn(project_id: str, request: Request) -> dict:
         deps.raise_for_chat_error(exc)
 
 
+def _mine(turns: list[dict]) -> list[dict]:
+    return [t for t in turns if deps.owns_project_id(str(t.get("project_id") or ""))]
+
+
+def _need_item(request: Request, item_id: str, missing: str) -> None:
+    """404 unless ``item_id`` (a turn, approval or question) is in one of the user's projects."""
+    project_id = deps.chat_service(request).project_of(item_id)
+    if project_id is None or not deps.owns_project_id(project_id):
+        raise HTTPException(404, missing)
+
+
 @router.get("/turns/current")
 def current_turn(request: Request) -> dict | None:
-    return deps.chat_service(request).current_turn()
+    mine = _mine(deps.chat_service(request).current_turns())
+    return mine[-1] if mine else None
 
 
 @router.get("/turns")
 def running_turns(request: Request) -> list[dict]:
-    """Every running turn, one per project lane (oldest first)."""
-    return deps.chat_service(request).current_turns()
+    """Every running turn of the user's projects, one per project lane (oldest first)."""
+    return _mine(deps.chat_service(request).current_turns())
 
 
 @router.post("/turns/{turn_id}/abort", status_code=202)
 def abort_turn(turn_id: str, request: Request) -> dict:
+    _need_item(request, turn_id, "No such running turn.")
     if not deps.chat_service(request).abort(turn_id):
         raise HTTPException(404, "No such running turn.")
     return {"status": "aborting"}
@@ -92,6 +105,7 @@ def abort_turn(turn_id: str, request: Request) -> dict:
 
 @router.post("/turns/{turn_id}/steer", status_code=202)
 def steer_turn(turn_id: str, body: SteerIn, request: Request) -> dict:
+    _need_item(request, turn_id, "No such running turn.")
     try:
         ok = deps.chat_service(request).steer(turn_id, body.text)
     except ChatError as exc:
@@ -103,6 +117,7 @@ def steer_turn(turn_id: str, body: SteerIn, request: Request) -> dict:
 
 @router.post("/approvals/{approval_id}", status_code=204)
 def resolve_approval(approval_id: str, body: ApprovalIn, request: Request) -> Response:
+    _need_item(request, approval_id, "No such pending approval.")
     if not deps.chat_service(request).resolve_approval(approval_id, body.decision):
         raise HTTPException(404, "No such pending approval.")
     return Response(status_code=204)
@@ -110,6 +125,7 @@ def resolve_approval(approval_id: str, body: ApprovalIn, request: Request) -> Re
 
 @router.post("/asks/{ask_id}", status_code=204)
 def resolve_ask(ask_id: str, body: AskIn, request: Request) -> Response:
+    _need_item(request, ask_id, "No such pending question.")
     if not deps.chat_service(request).resolve_ask(ask_id, body.answer):
         raise HTTPException(404, "No such pending question.")
     return Response(status_code=204)

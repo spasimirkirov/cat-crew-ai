@@ -93,3 +93,18 @@ def _checkpoints_in_tmp(tmp_path_factory, monkeypatch):
     from backend.harness import checkpoints
 
     monkeypatch.setattr(checkpoints, "CHECKPOINTS_DIR", tmp_path_factory.mktemp("checkpoints"))
+
+
+@pytest.fixture(autouse=True)
+def _local_mode_and_auth_in_tmp(tmp_path_factory, monkeypatch):
+    """Every test starts in local mode, with accounts and user workspaces in a temp folder."""
+    from backend.api import access
+    from backend.services import auth
+
+    root = tmp_path_factory.mktemp("auth")
+    monkeypatch.setattr(auth, "AUTH_DB", root / "auth.db")
+    monkeypatch.setattr(access, "USERS_DIR", root / "users")
+    auth.reset_throttle()
+    access.configure(remote=False)
+    yield
+    access.configure(remote=False)

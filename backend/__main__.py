@@ -9,8 +9,12 @@
 Browser mode needs the built front end (``cd frontend && npm run build``). With ``--ui`` the
 default port falls back to a free one when 8765 is taken.
 
-Only loopback binds are accepted: the API can run shell commands and edit files
-on the user's machine, so it must not be reachable from the network.
+On loopback the API is the desktop app's private backend: no login. Any other address is
+**remote mode** (``api/access.py``): every request needs a login, the first account (created with
+a setup code printed here) is the admin, and further accounts come from admin invites. Put a TLS
+proxy (Caddy, nginx) in front of a public server:
+
+    python -m backend --ui --host 0.0.0.0 --port 8765
 """
 
 from __future__ import annotations
@@ -74,14 +78,13 @@ def _open_browser(server, url: str) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse(argv)
-    if args.host not in _LOOPBACK:
-        print(f"[backend] refusing to bind {args.host!r}: the API is loopback-only.", file=sys.stderr)
-        return 2
+    remote = args.host not in _LOOPBACK
     ui_dir = None
     if args.ui:
-        from backend.api.ui import FRONTEND_DIST, ui_ready
+        from backend.api import ui
 
-        if not ui_ready():
+        FRONTEND_DIST = ui.FRONTEND_DIST
+        if not ui.ui_ready():
             print(
                 f"[backend] browser mode needs the built front end in {FRONTEND_DIST}: "
                 "run `cd frontend && npm install && npm run build` first.",
@@ -111,11 +114,12 @@ def main(argv: list[str] | None = None) -> int:
 
     from backend.api.app import create_app
 
-    app = create_app(ui_dir=ui_dir)
+    app = create_app(ui_dir=ui_dir, remote=remote)
     config = uvicorn.Config(
         app,
         host=args.host,
         port=args.port,
+        proxy_headers=True,  # X-Forwarded-Proto from a TLS proxy on this machine: Secure cookies
         log_level=args.log_level,
         ws_ping_interval=20,
         ws_ping_timeout=20,
@@ -151,6 +155,13 @@ def main(argv: list[str] | None = None) -> int:
 
     # Tauri (or a script) waits for this line before it connects.
     print(f"CATCREW_LISTENING http://{args.host}:{args.port}", flush=True)
+    if remote:
+        from backend.services import auth
+
+        print(f"[backend] REMOTE MODE on {args.host}:{args.port}: every request needs a login.", flush=True)
+        print("[backend] Serve it over HTTPS (a TLS proxy such as Caddy in front), never plain HTTP on the internet.", flush=True)
+        if auth.needs_setup():
+            print(f"[backend] No account yet. Setup code for the first (admin) account: {auth.issue_setup_code()}", flush=True)
     if ui_dir is not None:
         shown = "127.0.0.1" if args.host == "localhost" else f"[{args.host}]" if ":" in args.host else args.host
         url = f"http://{shown}:{args.port}/"

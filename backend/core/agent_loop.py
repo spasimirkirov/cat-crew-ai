@@ -160,15 +160,18 @@ class _Steerable:
         #: The project's computer for this turn, bound on the turn's own thread (``_bind_turn``);
         #: ``None`` keeps whatever the process has.
         self.folders: list[str] | None = None
+        #: A regular user's turn in remote mode: file tools stay inside ``folders``.
+        self.confined = False
 
     def _bind_turn(self) -> list[tuple[Callable[[Any], None], Any]]:
         """Bind the per-turn state on this thread; returns what ``_unbind_turn`` resets. Turns of
         different projects run side by side, so nothing here may be process-wide."""
-        from backend.services.workspace import bind_folders, reset_folders
+        from backend.services.workspace import bind_confined, bind_folders, reset_confined, reset_folders
 
         tokens: list[tuple[Callable[[Any], None], Any]] = [(reset_command_scope, bind_command_scope(self._commands))]
         if self.folders is not None:
             tokens.append((reset_folders, bind_folders(list(self.folders))))
+        tokens.append((reset_confined, bind_confined(self.confined)))
         return tokens
 
     @staticmethod

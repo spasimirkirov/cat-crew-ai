@@ -39,9 +39,15 @@ _QUEUE_MAX = 4000
 
 @router.websocket("/ws/projects/{project_id}/terminal")
 async def terminal_socket(ws: WebSocket, project_id: str) -> None:
+    from backend.api import access
+    from backend.services import sandbox
+
     project = get_project(project_id)
-    if project is None:
+    if project is None or not access.owns(project):
         await ws.close(code=4404)
+        return
+    if access.remote_mode() and not access.current_user().is_admin and not sandbox.status()["ready"]:
+        await ws.close(code=4403)  # a regular user's shell must run in their sandbox
         return
     await ws.accept()
     loop = asyncio.get_running_loop()

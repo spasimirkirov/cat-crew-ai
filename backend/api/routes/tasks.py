@@ -80,7 +80,7 @@ def list_changes(project_id: str, limit: int = Query(default=8, ge=1, le=100)) -
 @router.get("/diffs/{diff_uuid}")
 def get_diff(diff_uuid: str) -> dict:
     row = ledger.get_file_change(diff_uuid)
-    if row is None:
+    if row is None or not deps.owns_project_id(str(row.get("project_id") or "")):
         raise HTTPException(404, f"Unknown diff {diff_uuid!r}.")
     return {
         "diff_uuid": row["diff_uuid"],

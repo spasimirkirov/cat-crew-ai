@@ -21,6 +21,23 @@ _turn_folders: ContextVar[list[Path] | None] = ContextVar("catcrew_turn_folders"
 _PICKER_EMPTY = Path(os.environ.get("SystemDrive", "C:") + os.sep)
 
 
+# A turn of a regular user in remote mode: its file tools reach only the project's folders, never
+# the CatCrewAI install tree (api/access.py, tools._allowed_roots).
+_confined: ContextVar[bool] = ContextVar("catcrew_turn_confined", default=False)
+
+
+def bind_confined(on: bool):
+    return _confined.set(bool(on))
+
+
+def reset_confined(token) -> None:
+    _confined.reset(token)
+
+
+def is_confined() -> bool:
+    return _confined.get()
+
+
 def current_folders() -> list[Path]:
     bound = _turn_folders.get()
     return list(bound if bound is not None else _folders)
